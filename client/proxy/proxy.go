@@ -13,4 +13,5 @@ type Dialer interface {
 
 type Proxy interface {
 	Start()
+	Stop()
 }

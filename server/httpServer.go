@@ -57,11 +57,11 @@ func (w *httpServer) Start() {
 			log.Fatalf("http Proxy Client Listen failure: %v", err)
 		}
 	}()
+}
 
-	go func() {
-		<-w.ctx.Done()
-		if err := w.srv.Shutdown(w.ctx); err != nil {
-			log.Fatal(err)
-		}
-	}()
+func (w *httpServer) Stop() {
+	log.Infof("Stopping HTTP Web Server")
+	if err := w.srv.Shutdown(w.ctx); err != nil {
+		log.Fatal(err)
+	}
 }

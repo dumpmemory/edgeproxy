@@ -52,10 +52,18 @@ var (
 			if clientConfig.EnableSocks5 {
 				proxyService = append(proxyService, proxy.NewSocksProxy(cmd.Context(), dialer, clientConfig.Socks5Port))
 			}
+
+			if len(clientConfig.TransparentProxyList) > 0 {
+				proxyService = append(proxyService, proxy.NewTransParentProxy(cmd.Context(), dialer, clientConfig.TransparentProxyList))
+			}
+
 			for _, pr := range proxyService {
 				pr.Start()
 			}
 			<-cmd.Context().Done()
+			for _, pr := range proxyService {
+				pr.Stop()
+			}
 			os.Exit(exitCode)
 		},
 	}
@@ -77,5 +85,6 @@ func init() {
 
 	//WebSocket Transport Configuration
 	clientCmd.PersistentFlags().StringVarP(&clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, "wssTunnelEndpoint", "w", clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, "WebSocket Tunnel Endpoint")
+	clientCmd.PersistentFlags().VarP(&clientConfig.TransparentProxyList, "transparent-proxy", "k", "Create a transparent Proxy, expected format `5000:TCP:1.1.1.1:5000`")
 
 }

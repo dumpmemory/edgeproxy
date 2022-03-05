@@ -37,11 +37,11 @@ func (h *HTTPProxy) Start() {
 			log.Fatalf("Http Proxy Client Listen failure: %v", err)
 		}
 	}()
+}
 
-	go func() {
-		<-h.ctx.Done()
-		if err := h.srv.Shutdown(h.ctx); err != nil {
-			log.Fatal(err)
-		}
-	}()
+func (h *HTTPProxy) Stop() {
+	log.Infof("Stopping Http Proxy")
+	if err := h.srv.Shutdown(h.ctx); err != nil {
+		log.Fatal(err)
+	}
 }

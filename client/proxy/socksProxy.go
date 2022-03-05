@@ -41,9 +41,9 @@ func (s *SocksProxy) Start() {
 			log.Fatalf("Socks Proxy Client Listen failure: %v", err)
 		}
 	}()
+}
 
-	go func() {
-		<-s.ctx.Done()
-		//No shutdown library implemented on socks5 library :(
-	}()
+func (s *SocksProxy) Stop() {
+	log.Infof("Stopping Socks Proxy")
+	//TODO No shutdown library implemented on socks5 library :(
 }

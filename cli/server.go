@@ -27,7 +27,9 @@ var (
 			}
 			webSocketRelay := server.NewHttpServer(cmd.Context(), serverConfig.HttpPort)
 			webSocketRelay.Start()
+
 			<-cmd.Context().Done()
+			webSocketRelay.Stop()
 			os.Exit(exitCode)
 		},
 	}
