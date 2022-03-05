@@ -19,7 +19,7 @@ var (
 		Run: func(cmd *cobra.Command, testSuites []string) {
 			var err error
 			var dialer proxy.Dialer
-			var httpProxyService proxy.HTTPProxy
+			var proxyService []proxy.Proxy
 			if Verbose {
 				log.SetLevel(log.DebugLevel)
 				log.Debug("Verbose mode enabled")
@@ -45,9 +45,16 @@ var (
 				panic("Not implemented yet")
 			}
 			log.Infof("Selected Dialer %s", clientConfig.TransportType)
+			if clientConfig.EnableProxy {
+				proxyService = append(proxyService, proxy.NewHttpProxy(cmd.Context(), dialer, clientConfig.HttpProxyPort))
+			}
 
-			httpProxyService = proxy.NewHttpProxy(cmd.Context(), dialer, clientConfig.HttpProxyPort)
-			httpProxyService.Start()
+			if clientConfig.EnableSocks5 {
+				proxyService = append(proxyService, proxy.NewSocksProxy(cmd.Context(), dialer, clientConfig.Socks5Port))
+			}
+			for _, pr := range proxyService {
+				pr.Start()
+			}
 			<-cmd.Context().Done()
 			os.Exit(exitCode)
 		},

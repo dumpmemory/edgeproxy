@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/elazarl/goproxy"
 	log "github.com/sirupsen/logrus"
-	"net"
 	"net/http"
 )
 
@@ -14,15 +13,11 @@ type HTTPProxy struct {
 	proxy *goproxy.ProxyHttpServer
 	srv   *http.Server
 }
-type Dialer interface {
-	// Dial connects to the given address via the proxy.
-	Dial(network, addr string) (c net.Conn, err error)
-}
 
-func NewHttpProxy(ctx context.Context, proxyDialer Dialer, proxyPort int) HTTPProxy {
+func NewHttpProxy(ctx context.Context, proxyDialer Dialer, proxyPort int) Proxy {
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.ConnectDial = proxyDialer.Dial
-	return HTTPProxy{
+	return &HTTPProxy{
 		ctx:   ctx,
 		proxy: proxy,
 		srv: &http.Server{

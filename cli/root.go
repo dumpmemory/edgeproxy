@@ -25,7 +25,7 @@ var (
 	appConfig = &config.ApplicationConfig{
 		ClientConfig: config.ClientConfig{
 			EnableProxy:   true,
-			EnableSocks5:  false,
+			EnableSocks5:  true,
 			HttpProxyPort: 9080,
 			Socks5Port:    9022,
 			TransportType: config.WebsocketTransport,

@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"fmt"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
@@ -23,6 +24,10 @@ func NewWebSocketDialer(endpoint string) (proxy.Dialer, error) {
 	return &dialer{
 		Endpoint: endpointUrl,
 	}, nil
+}
+
+func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	return d.Dial(network, addr)
 }
 
 func (d *dialer) Dial(network string, addr string) (net.Conn, error) {

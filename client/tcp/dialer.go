@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"context"
 	"net"
 )
 
@@ -13,4 +14,7 @@ func NewTCPDialer() *dialer {
 
 func (d *dialer) Dial(network string, addr string) (net.Conn, error) {
 	return net.Dial(network, addr)
+}
+func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	return d.Dial(network, addr)
 }
