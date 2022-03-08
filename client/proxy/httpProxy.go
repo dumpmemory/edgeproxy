@@ -17,6 +17,7 @@ type HTTPProxy struct {
 func NewHttpProxy(ctx context.Context, proxyDialer Dialer, proxyPort int) Proxy {
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.ConnectDial = proxyDialer.Dial
+	proxy.Tr.DialContext = proxyDialer.DialContext
 	return &HTTPProxy{
 		ctx:   ctx,
 		proxy: proxy,

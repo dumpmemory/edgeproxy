@@ -36,7 +36,8 @@ func (ws *wsHandler) socketHandler(w http.ResponseWriter, r *http.Request) {
 
 	wsConn, err := ws.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Errorf("Error during connection upgrade: %v", err)
+		ws.InvalidRequest(w, fmt.Errorf("error during connection upgrade: %v", err))
+		return
 	}
 	edgeReadWriter := transport.NewEdgeProxyReadWriter(wsConn)
 	backendConn, err := net.Dial(netType, dstAddr)
@@ -49,6 +50,6 @@ func (ws *wsHandler) socketHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *wsHandler) InvalidRequest(w http.ResponseWriter, err error) {
-	w.WriteHeader(http.StatusBadGateway)
+	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte(err.Error()))
 }

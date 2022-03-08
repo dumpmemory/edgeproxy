@@ -27,10 +27,6 @@ func NewWebSocketDialer(endpoint string) (proxy.Dialer, error) {
 }
 
 func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	return d.Dial(network, addr)
-}
-
-func (d *dialer) Dial(network string, addr string) (net.Conn, error) {
 	if network == "udp" {
 		return nil, fmt.Errorf("not Support %s network", network)
 	}
@@ -45,10 +41,14 @@ func (d *dialer) Dial(network string, addr string) (net.Conn, error) {
 	headers := http.Header{}
 	headers.Add(transport.HeaderNetworkType, transport.TCPNetwork)
 	headers.Add(transport.HeaderDstAddress, addr)
-	wssCon, _, err := websocket.DefaultDialer.Dial(d.Endpoint.String(), headers)
+	wssCon, _, err := websocket.DefaultDialer.DialContext(ctx, d.Endpoint.String(), headers)
 	if err != nil {
-		log.Errorf("error when dialing Websocket tunnel %s: %v", d.Endpoint.String(), err)
+		return nil, fmt.Errorf("error when dialing Websocket tunnel %s: %v", d.Endpoint.String(), err)
 	}
 	edgeReadWriter := transport.NewEdgeProxyReadWriter(wssCon)
 	return edgeReadWriter, nil
+}
+
+func (d *dialer) Dial(network string, addr string) (net.Conn, error) {
+	return d.DialContext(context.Background(), network, addr)
 }
