@@ -1,12 +1,12 @@
 package cli
 
 import (
+	"edgeProxy/client/proxy"
+	"edgeProxy/client/tcp"
+	"edgeProxy/client/websocket"
+	"edgeProxy/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"httpProxy/client/proxy"
-	"httpProxy/client/tcp"
-	"httpProxy/client/websocket"
-	"httpProxy/config"
 	"os"
 )
 
@@ -54,7 +54,11 @@ var (
 			}
 
 			if len(clientConfig.TransparentProxyList) > 0 {
-				proxyService = append(proxyService, proxy.NewTransParentProxy(cmd.Context(), dialer, clientConfig.TransparentProxyList))
+				proxyService = append(proxyService, proxy.NewTransparentProxy(cmd.Context(), dialer, clientConfig.TransparentProxyList))
+			}
+
+			if len(clientConfig.PortForwardList) > 0 {
+				proxyService = append(proxyService, proxy.NewPortForwarding(cmd.Context(), dialer, clientConfig.PortForwardList))
 			}
 
 			for _, pr := range proxyService {
@@ -85,6 +89,7 @@ func init() {
 
 	//WebSocket Transport Configuration
 	clientCmd.PersistentFlags().StringVarP(&clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, "wssTunnelEndpoint", "w", clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, "WebSocket Tunnel Endpoint")
-	clientCmd.PersistentFlags().VarP(&clientConfig.TransparentProxyList, "transparent-proxy", "k", "Create a transparent Proxy, expected format `5000:TCP:1.1.1.1:5000`")
+	clientCmd.PersistentFlags().VarP(&clientConfig.TransparentProxyList, "transparent-proxy", "k", "Create a transparent Proxy, expected format `5000#TCP#1.1.1.1:5000`")
+	clientCmd.PersistentFlags().VarP(&clientConfig.PortForwardList, "port-forward", "f", "Port forward local port to remote TCP service over WebSocket,expected format `5000#TCP#wss://mytunnelendpoint`")
 
 }

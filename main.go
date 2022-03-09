@@ -1,10 +1,10 @@
 package main
 
 import (
+	"edgeProxy/cli"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"httpProxy/cli"
 	"os"
 	"os/signal"
 	"syscall"

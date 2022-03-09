@@ -2,9 +2,9 @@ package proxy
 
 import (
 	"context"
+	"edgeProxy/transport"
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"httpProxy/transport"
 	"net"
 )
 
@@ -22,12 +22,16 @@ type TransparentProxyMapping struct {
 	DestinationPort int
 }
 
+func (mapping TransparentProxyMapping) String() string {
+	return fmt.Sprintf("%d:%s:%s:%d", mapping.ListenPort, mapping.Network, mapping.DestinationHost, mapping.DestinationPort)
+}
+
 type listenerTransparentProxyMapping struct {
 	TransparentProxyMapping
 	listener net.Listener
 }
 
-func NewTransParentProxy(ctx context.Context, dialer Dialer, transparentProxyMappings []TransparentProxyMapping) Proxy {
+func NewTransparentProxy(ctx context.Context, dialer Dialer, transparentProxyMappings []TransparentProxyMapping) Proxy {
 	transparentProxy := &transparentProxy{
 		ctx:                      ctx,
 		transparentProxyMappings: transparentProxyMappings,
@@ -40,7 +44,7 @@ func NewTransParentProxy(ctx context.Context, dialer Dialer, transparentProxyMap
 func (t *transparentProxy) Start() {
 	for _, mapping := range t.transparentProxyMappings {
 		localAddr := fmt.Sprintf(":%d", mapping.ListenPort)
-		log.Infof("Starting Transparent Proxy: PROTO %s  %s --> %s:%d", mapping.Network, localAddr, mapping.DestinationHost, mapping.DestinationPort)
+		log.Infof("Starting Transparent Proxy: %s", mapping.String())
 		listener, err := net.Listen("tcp", localAddr)
 		if err != nil {
 			log.Fatalf("Error when listening port %d: %v", mapping.ListenPort, err)
@@ -50,7 +54,7 @@ func (t *transparentProxy) Start() {
 			listener:                listener,
 		}
 		t.runningListeners = append(t.runningListeners, listenerMapping)
-		go t.proxyHost(listener, listenerMapping)
+		go t.serve(listener, listenerMapping)
 	}
 }
 
@@ -63,19 +67,26 @@ func (s *transparentProxy) Stop() {
 	}
 }
 
-func (t *transparentProxy) proxyHost(listener net.Listener, mapping *listenerTransparentProxyMapping) {
+func (t *transparentProxy) serve(listener net.Listener, mapping *listenerTransparentProxyMapping) {
 	destinationAddr := fmt.Sprintf("%s:%d", mapping.DestinationHost, mapping.DestinationPort)
 	for {
 		//TODO How we stop this gracefully?
-		fd, err := listener.Accept()
+		originConn, err := listener.Accept()
+		log.Debugf("Accepted new TCP Connection")
 		if err != nil {
 			log.Warnf("Error when accepting incoming connection %s: %v", listener.Addr().String(), err)
 		}
-		proxyConn, err := t.dialer.DialContext(t.ctx, listener.Addr().Network(), destinationAddr)
-		if err != nil {
-			log.Error(err)
-			continue
-		}
-		transport.ProxyConnection(fd, proxyConn)
+
+		go t.serveConnection(originConn, listener.Addr().Network(), destinationAddr)
 	}
+}
+
+func (t *transparentProxy) serveConnection(originConn net.Conn, network string, destinationAddr string) {
+	defer originConn.Close()
+	tunnelConn, err := t.dialer.DialContext(t.ctx, network, destinationAddr)
+	if err != nil {
+		log.Error(err)
+	}
+	defer tunnelConn.Close()
+	transport.Stream(tunnelConn, originConn)
 }

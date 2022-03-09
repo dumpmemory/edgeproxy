@@ -2,31 +2,31 @@ package websocket
 
 import (
 	"context"
+	"edgeProxy/transport"
 	"fmt"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
-	"httpProxy/client/proxy"
-	"httpProxy/transport"
 	"net"
 	"net/http"
 	"net/url"
 )
 
-type dialer struct {
+type webSocketConnectionDialer struct {
+	net.Conn
 	Endpoint *url.URL
 }
 
-func NewWebSocketDialer(endpoint string) (proxy.Dialer, error) {
+func NewWebSocketDialer(endpoint string) (*webSocketConnectionDialer, error) {
 	endpointUrl, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
 	}
-	return &dialer{
+	return &webSocketConnectionDialer{
 		Endpoint: endpointUrl,
 	}, nil
 }
 
-func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+func (d *webSocketConnectionDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	if network == "udp" {
 		return nil, fmt.Errorf("not Support %s network", network)
 	}
@@ -49,6 +49,6 @@ func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	return edgeReadWriter, nil
 }
 
-func (d *dialer) Dial(network string, addr string) (net.Conn, error) {
+func (d *webSocketConnectionDialer) Dial(network string, addr string) (net.Conn, error) {
 	return d.DialContext(context.Background(), network, addr)
 }

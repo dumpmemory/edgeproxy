@@ -1,12 +1,10 @@
 package transport
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
 	"github.com/gorilla/websocket"
-	"io"
 	"net"
-	"sync"
 	"time"
 )
 
@@ -19,99 +17,61 @@ const (
 )
 
 type edgeProxyReadWriter struct {
-	conn       *websocket.Conn
-	readMutex  sync.Mutex
-	writeMutex sync.Mutex
-	reader     io.Reader
+	*websocket.Conn
+	readBuf bytes.Buffer
 }
 
-func NewEdgeProxyReadWriter(conn *websocket.Conn) net.Conn {
+func NewEdgeProxyReadWriter(conn *websocket.Conn) *edgeProxyReadWriter {
 	return &edgeProxyReadWriter{
-		conn: conn,
+		Conn: conn,
 	}
 }
 
 func (a *edgeProxyReadWriter) Read(b []byte) (int, error) {
-	a.readMutex.Lock()
-	defer a.readMutex.Unlock()
-
-	if a.reader == nil {
-		messageType, reader, err := a.conn.NextReader()
-		if err != nil {
-			return 0, err
-		}
-
-		if messageType != websocket.BinaryMessage {
-			return 0, errors.New("unexpected websocket message type")
-		}
-
-		a.reader = reader
+	if a.readBuf.Len() > 0 {
+		return a.readBuf.Read(b)
 	}
-
-	bytesRead, err := a.reader.Read(b)
-	if err != nil {
-		a.reader = nil
-		if err == io.EOF {
-			err = nil
-		}
-	}
-
-	return bytesRead, err
-}
-
-func (a *edgeProxyReadWriter) Write(b []byte) (int, error) {
-	a.writeMutex.Lock()
-	defer a.writeMutex.Unlock()
-
-	nextWriter, err := a.conn.NextWriter(websocket.BinaryMessage)
+	_, message, err := a.Conn.ReadMessage()
 	if err != nil {
 		return 0, err
 	}
+	copied := copy(b, message)
+	a.readBuf.Write(message[copied:])
+	return copied, nil
+}
 
-	bytesWritten, err := nextWriter.Write(b)
-	if err != nil {
-		fmt.Println("sdf")
+func (a *edgeProxyReadWriter) Write(b []byte) (int, error) {
+	if err := a.Conn.WriteMessage(websocket.BinaryMessage, b); err != nil {
+		return 0, err
 	}
-	nextWriter.Close()
-
-	return bytesWritten, err
+	return len(b), nil
 }
 
 func (a *edgeProxyReadWriter) CloseWrite() error {
-	a.writeMutex.Lock()
-	defer a.writeMutex.Unlock()
-	return a.conn.Close()
+	return a.Conn.Close()
 }
 func (a *edgeProxyReadWriter) CloseRead() error {
-	a.readMutex.Lock()
-	defer a.readMutex.Unlock()
-	return a.conn.Close()
+	return a.Conn.Close()
 }
 
 func (a *edgeProxyReadWriter) Close() error {
-	return a.conn.Close()
+	return a.Conn.Close()
 }
 
 func (a *edgeProxyReadWriter) LocalAddr() net.Addr {
-	return a.conn.LocalAddr()
+	return a.Conn.LocalAddr()
 }
 
 func (a *edgeProxyReadWriter) RemoteAddr() net.Addr {
-	return a.conn.RemoteAddr()
+	return a.Conn.RemoteAddr()
 }
 
 func (a *edgeProxyReadWriter) SetDeadline(t time.Time) error {
-	if err := a.SetReadDeadline(t); err != nil {
-		return err
+	if err := a.Conn.SetReadDeadline(t); err != nil {
+		return fmt.Errorf("error setting read deadline: %w", err)
 	}
-
-	return a.SetWriteDeadline(t)
-}
-
-func (a *edgeProxyReadWriter) SetReadDeadline(t time.Time) error {
-	return a.conn.SetReadDeadline(t)
-}
-
-func (a *edgeProxyReadWriter) SetWriteDeadline(t time.Time) error {
-	return a.conn.SetWriteDeadline(t)
+	if err := a.Conn.SetWriteDeadline(t); err != nil {
+		return fmt.Errorf("error setting write deadline: %w", err)
+	}
+	return nil
 }

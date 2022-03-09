@@ -2,11 +2,11 @@ package cli
 
 import (
 	"context"
+	"edgeProxy/config"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"httpProxy/config"
 	"os"
 	"path"
 	"path/filepath"
@@ -24,8 +24,8 @@ var (
 	Verbose   bool
 	appConfig = &config.ApplicationConfig{
 		ClientConfig: config.ClientConfig{
-			EnableProxy:   true,
-			EnableSocks5:  true,
+			EnableProxy:   false,
+			EnableSocks5:  false,
 			HttpProxyPort: 9080,
 			Socks5Port:    9022,
 			TransportType: config.WebsocketTransport,

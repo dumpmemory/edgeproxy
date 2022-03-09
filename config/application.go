@@ -1,8 +1,9 @@
 package config
 
 import (
+	proxy "edgeProxy/client/proxy"
 	"fmt"
-	proxy "httpProxy/client/proxy"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 type TransportType string
 type TransparentProxyMappingList []proxy.TransparentProxyMapping
+type PortForwardingMappingList []proxy.PortForwardingMapping
 
 const (
 	WebsocketTransport TransportType = "WebSocketTransport"
@@ -35,32 +37,67 @@ func (t TransportType) Type() string {
 func (t *TransparentProxyMappingList) String() string {
 	var stringList []string
 	for _, mapping := range *t {
-		stringList = append(stringList, fmt.Sprintf("%d:%s:%s:%d", mapping.ListenPort, mapping.Network, mapping.DestinationHost, mapping.DestinationPort))
+		stringList = append(stringList, mapping.String())
 	}
 	return fmt.Sprintf("%q", stringList)
 }
 
 func (t *TransparentProxyMappingList) Set(s string) (err error) {
-	//5000:TCP:1.1.1.1:5000
-
+	//5000#TCP#1.1.1.1:5000
+	var portString string
 	transparentProxy := proxy.TransparentProxyMapping{}
-	transparentProxyString := strings.Split(s, ":")
+	transparentProxyString := strings.Split(s, "#")
 	transparentProxy.ListenPort, err = strconv.Atoi(transparentProxyString[0])
 	if err != nil {
 		return fmt.Errorf("invalid Format for Transparent Proxy Mapping: %s, %v", s, err)
 	}
-	transparentProxy.Network = transparentProxyString[1]
-	transparentProxy.DestinationHost = transparentProxyString[2]
-	transparentProxy.DestinationPort, err = strconv.Atoi(transparentProxyString[3])
+	transparentProxy.Network = strings.ToLower(transparentProxyString[1])
+	transparentProxy.DestinationHost, portString, err = net.SplitHostPort(transparentProxyString[2])
 	if err != nil {
 		return fmt.Errorf("invalid Format for Transparent Proxy Mapping: %s, %v", s, err)
 	}
+	transparentProxy.DestinationPort, err = strconv.Atoi(portString)
+	if err != nil {
+		return fmt.Errorf("invalid Format for Transparent Proxy Mapping: %s, %v", s, err)
+	}
+
 	*t = append(*t, transparentProxy)
 	return nil
 }
 
 func (t *TransparentProxyMappingList) Type() string {
 	return "TransparentProxyMapping"
+}
+
+func (t *PortForwardingMappingList) String() string {
+	var stringList []string
+	for _, mapping := range *t {
+		stringList = append(stringList, mapping.String())
+	}
+	return fmt.Sprintf("%q", stringList)
+}
+
+func (t *PortForwardingMappingList) Set(s string) (err error) {
+	//5000#TCP#wss://myendpoint:443
+
+	portForwardingMapping := proxy.PortForwardingMapping{}
+	transparentProxyString := strings.Split(s, "#")
+	portForwardingMapping.ListenPort, err = strconv.Atoi(transparentProxyString[0])
+	if err != nil {
+		return fmt.Errorf("invalid Format for Transparent Proxy Mapping: %s, %v", s, err)
+	}
+	portForwardingMapping.Network = strings.ToLower(transparentProxyString[1])
+	portForwardingMapping.Endpoint, err = url.Parse(transparentProxyString[2])
+	if err != nil {
+		return fmt.Errorf("invalid Endpoint Format for Port Forwarding Mapping: %s, %v", s, err)
+	}
+
+	*t = append(*t, portForwardingMapping)
+	return nil
+}
+
+func (t *PortForwardingMappingList) Type() string {
+	return "PortForwardingMapping"
 }
 
 type ApplicationConfig struct {
@@ -76,6 +113,7 @@ type ClientConfig struct {
 	TransportType            TransportType
 	WebSocketTransportConfig WebSocketTransportConfig
 	TransparentProxyList     TransparentProxyMappingList
+	PortForwardList          PortForwardingMappingList
 }
 
 type ServerConfig struct {
@@ -94,7 +132,7 @@ type WebSocketTransportConfig struct {
 }
 
 func (c ClientConfig) Validate() (err error) {
-	if c.TransportType == WebsocketTransport {
+	if c.TransportType == WebsocketTransport && (c.EnableProxy || c.EnableSocks5) {
 		if err = c.WebSocketTransportConfig.Validate(); err != nil {
 			return err
 		}

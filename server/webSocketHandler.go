@@ -2,10 +2,10 @@ package server
 
 import (
 	"context"
+	"edgeProxy/transport"
 	"fmt"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
-	"httpProxy/transport"
 	"net"
 	"net/http"
 )
@@ -39,13 +39,14 @@ func (ws *wsHandler) socketHandler(w http.ResponseWriter, r *http.Request) {
 		ws.InvalidRequest(w, fmt.Errorf("error during connection upgrade: %v", err))
 		return
 	}
-	edgeReadWriter := transport.NewEdgeProxyReadWriter(wsConn)
-	backendConn, err := net.Dial(netType, dstAddr)
-	transport.ProxyConnection(edgeReadWriter, backendConn)
+	tunnelConn := transport.NewEdgeProxyReadWriter(wsConn)
+	dstConn, err := net.Dial(netType, dstAddr)
 	if err != nil {
 		log.Errorf("Can not connect to %s: %v", dstAddr, err)
 		return
 	}
+	defer dstConn.Close()
+	transport.Stream(tunnelConn, dstConn)
 
 }
 
