@@ -1,7 +1,7 @@
 package main
 
 import (
-	"edgeProxy/cli"
+	"edgeproxy/cli"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"

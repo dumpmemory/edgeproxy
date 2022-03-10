@@ -2,7 +2,7 @@ package proxy
 
 import (
 	"context"
-	"edgeProxy/transport"
+	"edgeproxy/transport"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net"

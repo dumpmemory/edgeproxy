@@ -1,8 +1,8 @@
-package server
+package handlers
 
 import (
 	"context"
-	"edgeProxy/transport"
+	"edgeproxy/transport"
 	"fmt"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
@@ -10,6 +10,10 @@ import (
 	"net/http"
 )
 
+type WebSocketHandler interface {
+	// WebSocket Handler
+	SocketHandler(w http.ResponseWriter, r *http.Request)
+}
 type wsHandler struct {
 	upgrader websocket.Upgrader
 	ctx      context.Context
@@ -22,7 +26,7 @@ func NewWebSocketHandler(ctx context.Context) WebSocketHandler {
 	}
 }
 
-func (ws *wsHandler) socketHandler(w http.ResponseWriter, r *http.Request) {
+func (ws *wsHandler) SocketHandler(w http.ResponseWriter, r *http.Request) {
 	netType := r.Header.Get(transport.HeaderNetworkType)
 	dstAddr := r.Header.Get(transport.HeaderDstAddress)
 	if netType == "" {

@@ -2,9 +2,11 @@ package server
 
 import (
 	"context"
+	"edgeproxy/server/handlers"
 	"fmt"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"sync/atomic"
 
 	"net/http"
 )
@@ -14,11 +16,7 @@ type httpServer struct {
 	srv         *http.Server
 	srvCertPath string
 	srvKeyPath  string
-}
-
-type WebSocketHandler interface {
-	// WebSocket Handler
-	socketHandler(w http.ResponseWriter, r *http.Request)
+	IsReady     *atomic.Value
 }
 
 func NewHttpServer(ctx context.Context, httpPort int) httpServer {
@@ -26,10 +24,14 @@ func NewHttpServer(ctx context.Context, httpPort int) httpServer {
 }
 
 func NewHttpServerWithTLS(ctx context.Context, httpPort int, srvCertPath string, srvKeyPath string) httpServer {
-	wsHandler := NewWebSocketHandler(ctx)
-
+	wsHandler := handlers.NewWebSocketHandler(ctx)
 	muxRouter := mux.NewRouter()
-	muxRouter.HandleFunc("/", wsHandler.socketHandler)
+	isReady := &atomic.Value{}
+	isReady.Store(false)
+	muxRouter.HandleFunc("/", wsHandler.SocketHandler)
+	muxRouter.HandleFunc("/version", handlers.VersionHandler)
+	muxRouter.HandleFunc("/healthz", handlers.Healthz)
+	muxRouter.HandleFunc("/readyz", handlers.Readyz(isReady))
 	//r.HandleFunc("/stats", StatsHandler)
 
 	return httpServer{
@@ -38,6 +40,7 @@ func NewHttpServerWithTLS(ctx context.Context, httpPort int, srvCertPath string,
 			Addr:    fmt.Sprintf(":%d", httpPort),
 			Handler: muxRouter,
 		},
+		IsReady:     isReady,
 		srvCertPath: srvCertPath,
 		srvKeyPath:  srvKeyPath,
 	}
@@ -57,6 +60,8 @@ func (w *httpServer) Start() {
 			log.Fatalf("http Proxy Client Listen failure: %v", err)
 		}
 	}()
+	//TODO this should be only active if we can establish connection to the backend tunnel.
+	w.IsReady.Store(true)
 }
 
 func (w *httpServer) Stop() {

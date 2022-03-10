@@ -1,7 +1,7 @@
 package config
 
 import (
-	proxy "edgeProxy/client/proxy"
+	proxy "edgeproxy/client/proxy"
 	"fmt"
 	"net"
 	"net/url"

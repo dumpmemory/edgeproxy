@@ -1,10 +1,10 @@
 package cli
 
 import (
-	"edgeProxy/client/proxy"
-	"edgeProxy/client/tcp"
-	"edgeProxy/client/websocket"
-	"edgeProxy/config"
+	"edgeproxy/client/proxy"
+	"edgeproxy/client/tcp"
+	"edgeproxy/client/websocket"
+	"edgeproxy/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"os"

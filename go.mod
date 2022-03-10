@@ -1,4 +1,4 @@
-module edgeProxy
+module edgeproxy
 
 go 1.17
 

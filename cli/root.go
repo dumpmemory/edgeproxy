@@ -2,7 +2,7 @@ package cli
 
 import (
 	"context"
-	"edgeProxy/config"
+	"edgeproxy/config"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

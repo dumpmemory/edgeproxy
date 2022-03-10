@@ -2,7 +2,7 @@ package websocket
 
 import (
 	"context"
-	"edgeProxy/transport"
+	"edgeproxy/transport"
 	"fmt"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"

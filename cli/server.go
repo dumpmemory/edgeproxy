@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"edgeProxy/server"
+	"edgeproxy/server"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"os"
