@@ -2,6 +2,7 @@ package config
 
 import (
 	proxy "edgeproxy/client/proxy"
+	"edgeproxy/ipaccess"
 	"fmt"
 	"net"
 	"net/url"
@@ -101,8 +102,8 @@ func (t *PortForwardingMappingList) Type() string {
 }
 
 type ApplicationConfig struct {
-	ClientConfig ClientConfig
-	ServerConfig ServerConfig
+	ClientConfig *ClientConfig `mapstructure:"client"`
+	ServerConfig *ServerConfig `mapstructure:"server"`
 }
 
 type ClientConfig struct {
@@ -117,7 +118,8 @@ type ClientConfig struct {
 }
 
 type ServerConfig struct {
-	HttpPort int
+	HttpPort      int              `mapstructure:"httpPort"`
+	FirewallRules *ipaccess.Policy `mapstructure:"firewall"`
 }
 
 func (s ServerConfig) Validate() error {

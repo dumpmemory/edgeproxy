@@ -41,18 +41,22 @@ Usage:
   edge-proxy client [flags]
 
 Flags:
-  -h, --help                                      help for client
-      --http                                      Enable Http Proxy (default true)
-      --http-port int                             Http WebSocket Server Listen Port (default 9180)
-      --proxy-port int                            Http Proxy Listen Port (default 9080)
-      --socks5                                    Enable Socks5 Proxy (default true)
-      --socks5-port int                           Socks5 Proxy Listen Port (default 9022)
-  -k, --transparent-proxy 5000:TCP:1.1.1.1:5000   Create a transparent Proxy, expected format 5000:TCP:1.1.1.1:5000 (default [])
-  -t, --transport TransportType                   Transport Type (default WebSocketTransport)
-  -w, --wssTunnelEndpoint string                  WebSocket Tunnel Endpoint
+  -h, --help                                           help for client
+      --http                                           Enable Http Proxy
+      --http-port int                                  Http WebSocket Server Listen Port (default 9180)
+  -f, --port-forward 5000#TCP#wss://mytunnelendpoint   Port forward local port to remote TCP service over WebSocket
+,expected format 5000#TCP#wss://mytunnelendpoint (default [])
+      --proxy-port int                                 Http Proxy Listen Port (default 9080)
+      --socks5                                         Enable Socks5 Proxy
+      --socks5-port int                                Socks5 Proxy Listen Port (default 9022)
+  -k, --transparent-proxy 5000#TCP#1.1.1.1:5000        Create a transparent Proxy, expected format 5000#TCP#1.1.1.1
+:5000 (default [])
+  -t, --transport TransportType                        Transport Type (default WebSocketTransport)
+  -w, --wssTunnelEndpoint string                       WebSocket Tunnel Endpoint
 
 Global Flags:
-      --config string   config file path, accept Environment Variable EDGEPROXY_CONFIG (default is $HOME/.edgeproxy/config.yaml)
+      --config string   config file path, accept Environment Variable EDGEPROXY_CONFIG (default is $HOME/.edgeproxy
+/config.yaml)
   -v, --verbose         verbose output
 ```
 
@@ -77,7 +81,30 @@ Flags:
   -h, --help   help for server
 
 Global Flags:
-      --config string   config file path, accept Environment Variable EDGEPROXY_CONFIG (default is $HOME/.edgeproxy/config.yaml)
+      --config string   config file path, accept Environment Variable EDGEPROXY_CONFIG (default is $HOME/.edgeproxy
+/config.yaml)
   -v, --verbose         verbose output
 ```
+
+### Firewall Rules
+server can be configured in a way that only allows forward an specific range of IPs.
+can be configured if using ``--config /my/config.yml```
+
+#### firewall rules Configuration
+```
+server:
+  firewall:
+    defaultAllow: false
+    rules:
+    - ipnet: 192.168.0.0/24
+      ports: [80, 443, 22]
+      allow: true
+    - ipnet: 0.0.0.0/0
+      ports: [80, 443]
+      allow: false
+```
+Server allows configuration hot reloading with ```--watch-config```
+
+
+
 

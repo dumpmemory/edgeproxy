@@ -3,13 +3,18 @@ package cli
 import (
 	"context"
 	"edgeproxy/config"
+	"edgeproxy/ipaccess"
 	"fmt"
+	"github.com/fsnotify/fsnotify"
+	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"runtime"
 )
 
@@ -19,18 +24,19 @@ const (
 )
 
 var (
-	exitCode  = success
-	cfgFile   string
-	Verbose   bool
-	appConfig = &config.ApplicationConfig{
-		ClientConfig: config.ClientConfig{
+	exitCode    = success
+	cfgFile     string
+	watchConfig bool
+	Verbose     bool
+	appConfig   = &config.ApplicationConfig{
+		ClientConfig: &config.ClientConfig{
 			EnableProxy:   false,
 			EnableSocks5:  false,
 			HttpProxyPort: 9080,
 			Socks5Port:    9022,
 			TransportType: config.WebsocketTransport,
 		},
-		ServerConfig: config.ServerConfig{
+		ServerConfig: &config.ServerConfig{
 			HttpPort: 9180,
 		},
 	}
@@ -51,6 +57,7 @@ func Execute(ctx context.Context) {
 func init() {
 	cobra.OnInitialize(initConfig)
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file path, accept Environment Variable EDGEPROXY_CONFIG (default is $HOME/.edgeproxy/config.yaml) ")
+	RootCmd.PersistentFlags().BoolVar(&watchConfig, "watch-config", false, "Watch for config updates, and refresh")
 	RootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")
 }
 
@@ -83,13 +90,63 @@ func initConfig() {
 	viper.AddConfigPath(".")
 	viper.BindPFlags(RootCmd.PersistentFlags())
 
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		log.Infof("Using config file: %s", viper.ConfigFileUsed())
-	}
-
-	if err := viper.Unmarshal(&appConfig); err != nil {
-		log.Errorf("Error when unmarshalling configuration %v", err)
+	configOption := viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
+		StringToIPNetHookFunc(),
+		mapstructure.StringToTimeDurationHookFunc(),
+		mapstructure.StringToSliceHookFunc(","),
+	))
+	if err := readConfiguration(configOption); err != nil {
+		log.Error(err)
 		os.Exit(1)
+	}
+	if watchConfig {
+		log.Infof("Watching configuration updates")
+		viperConfigUpdate(configOption)
+	}
+}
+
+func viperConfigUpdate(configOption viper.DecoderConfigOption) {
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		if err := readConfiguration(configOption); err != nil {
+			log.Error(err)
+			return
+		}
+		fmt.Println("Detected Configuration Update")
+		log.Debugf("Configuration Updated: %v", appConfig.ServerConfig.FirewallRules)
+	})
+	viper.WatchConfig()
+}
+
+func readConfiguration(configOption viper.DecoderConfigOption) error {
+	if err := viper.ReadInConfig(); err != nil {
+		return err
+	}
+	log.Infof("Using config file: %s", viper.ConfigFileUsed())
+
+	if err := viper.Unmarshal(&appConfig, configOption); err != nil {
+		return fmt.Errorf("error when unmarshalling configuration %v", err)
+	}
+	return nil
+}
+
+func StringToIPNetHookFunc() mapstructure.DecodeHookFunc {
+	return func(
+		f reflect.Type,
+		t reflect.Type,
+		data interface{}) (interface{}, error) {
+		if f.Kind() != reflect.String {
+			return data, nil
+		}
+		if t != reflect.TypeOf(ipaccess.IPNet{}) {
+			return data, nil
+		}
+
+		// Convert it by parsing
+		_, ipnet, err := net.ParseCIDR(data.(string))
+		if err != nil {
+			return nil, err
+		}
+
+		return ipaccess.IPNet{IPNet: *ipnet}, nil
 	}
 }

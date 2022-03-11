@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"edgeproxy/server/authorization"
 	"edgeproxy/server/handlers"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -17,22 +18,23 @@ type httpServer struct {
 	srvCertPath string
 	srvKeyPath  string
 	IsReady     *atomic.Value
+	authorizer  authorization.Authorizer
 }
 
-func NewHttpServer(ctx context.Context, httpPort int) httpServer {
-	return NewHttpServerWithTLS(ctx, httpPort, "", "")
+func NewHttpServer(ctx context.Context, authorizer authorization.Authorizer, httpPort int) httpServer {
+	return NewHttpServerWithTLS(ctx, authorizer, httpPort, "", "")
 }
 
-func NewHttpServerWithTLS(ctx context.Context, httpPort int, srvCertPath string, srvKeyPath string) httpServer {
+func NewHttpServerWithTLS(ctx context.Context, authorizer authorization.Authorizer, httpPort int, srvCertPath string, srvKeyPath string) httpServer {
 	wsHandler := handlers.NewWebSocketHandler(ctx)
 	muxRouter := mux.NewRouter()
 	isReady := &atomic.Value{}
+
 	isReady.Store(false)
-	muxRouter.HandleFunc("/", wsHandler.SocketHandler)
+	muxRouter.HandleFunc("/", handlers.Authorize(authorizer, wsHandler.SocketHandler))
 	muxRouter.HandleFunc("/version", handlers.VersionHandler)
 	muxRouter.HandleFunc("/healthz", handlers.Healthz)
 	muxRouter.HandleFunc("/readyz", handlers.Readyz(isReady))
-	//r.HandleFunc("/stats", StatsHandler)
 
 	return httpServer{
 		ctx: ctx,
@@ -40,6 +42,7 @@ func NewHttpServerWithTLS(ctx context.Context, httpPort int, srvCertPath string,
 			Addr:    fmt.Sprintf(":%d", httpPort),
 			Handler: muxRouter,
 		},
+		authorizer:  authorizer,
 		IsReady:     isReady,
 		srvCertPath: srvCertPath,
 		srvKeyPath:  srvKeyPath,
