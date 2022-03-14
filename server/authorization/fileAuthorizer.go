@@ -25,16 +25,16 @@ func NewFileAuthorizer(ctx context.Context, ipPolicy *ipaccess.Policy) *fileAuth
 	return authorizer
 }
 
-func (f *fileAuthorizer) Authorize(w http.ResponseWriter, r *http.Request) bool {
+func (f *fileAuthorizer) Authorize(w http.ResponseWriter, r *http.Request) (bool, Subject) {
 	var port int
 	var err error
 	netType := r.Header.Get(transport.HeaderNetworkType)
 	dstAddr := r.Header.Get(transport.HeaderDstAddress)
 	if netType == "" {
-		return false
+		return false, nil
 	}
 	if dstAddr == "" {
-		return false
+		return false, nil
 	}
 	dstPortAddr := strings.Split(dstAddr, ":")
 	dstAddr = dstPortAddr[0]
@@ -44,10 +44,10 @@ func (f *fileAuthorizer) Authorize(w http.ResponseWriter, r *http.Request) bool 
 	} else {
 		port, err = strconv.Atoi(dstPortAddr[1])
 		if err != nil {
-			return false
+			return false, nil
 		}
 	}
 	ip := net.ParseIP(dstAddr)
 	allowed, _ := f.ipPolicy.Allowed(ip, port)
-	return allowed
+	return allowed, nil
 }

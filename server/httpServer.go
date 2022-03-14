@@ -9,6 +9,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"sync/atomic"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"net/http"
 )
 
@@ -18,23 +20,25 @@ type httpServer struct {
 	srvCertPath string
 	srvKeyPath  string
 	IsReady     *atomic.Value
-	authorizer  authorization.Authorizer
+	authorizers []authorization.Authorizer
+	acl         *authorization.PolicyEnforcer
 }
 
-func NewHttpServer(ctx context.Context, authorizer authorization.Authorizer, httpPort int) httpServer {
-	return NewHttpServerWithTLS(ctx, authorizer, httpPort, "", "")
+func NewHttpServer(ctx context.Context, authorizers []authorization.Authorizer, acl *authorization.PolicyEnforcer, httpPort int) httpServer {
+	return NewHttpServerWithTLS(ctx, authorizers, acl, httpPort, "", "")
 }
 
-func NewHttpServerWithTLS(ctx context.Context, authorizer authorization.Authorizer, httpPort int, srvCertPath string, srvKeyPath string) httpServer {
+func NewHttpServerWithTLS(ctx context.Context, authorizers []authorization.Authorizer, policyEnforcer *authorization.PolicyEnforcer, httpPort int, srvCertPath string, srvKeyPath string) httpServer {
 	wsHandler := handlers.NewWebSocketHandler(ctx)
 	muxRouter := mux.NewRouter()
 	isReady := &atomic.Value{}
 
 	isReady.Store(false)
-	muxRouter.HandleFunc("/", handlers.Authorize(authorizer, wsHandler.SocketHandler))
+	muxRouter.HandleFunc("/", handlers.Authorize(authorizers[0], policyEnforcer, wsHandler.SocketHandler))
 	muxRouter.HandleFunc("/version", handlers.VersionHandler)
 	muxRouter.HandleFunc("/healthz", handlers.Healthz)
 	muxRouter.HandleFunc("/readyz", handlers.Readyz(isReady))
+	muxRouter.Handle("/metrics", promhttp.Handler())
 
 	return httpServer{
 		ctx: ctx,
@@ -42,10 +46,11 @@ func NewHttpServerWithTLS(ctx context.Context, authorizer authorization.Authoriz
 			Addr:    fmt.Sprintf(":%d", httpPort),
 			Handler: muxRouter,
 		},
-		authorizer:  authorizer,
+		authorizers: authorizers,
 		IsReady:     isReady,
 		srvCertPath: srvCertPath,
 		srvKeyPath:  srvKeyPath,
+		acl:         policyEnforcer,
 	}
 }
 

@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"edgeproxy/client/clientauth"
 	"edgeproxy/transport"
 	"fmt"
 	"github.com/gorilla/websocket"
@@ -13,16 +14,18 @@ import (
 
 type webSocketConnectionDialer struct {
 	net.Conn
-	Endpoint *url.URL
+	Endpoint      *url.URL
+	Authenticator clientauth.Authenticator
 }
 
-func NewWebSocketDialer(endpoint string) (*webSocketConnectionDialer, error) {
+func NewWebSocketDialer(endpoint string, authenticator clientauth.Authenticator) (*webSocketConnectionDialer, error) {
 	endpointUrl, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
 	}
 	return &webSocketConnectionDialer{
-		Endpoint: endpointUrl,
+		Endpoint:      endpointUrl,
+		Authenticator: authenticator,
 	}, nil
 }
 
@@ -41,6 +44,9 @@ func (d *webSocketConnectionDialer) DialContext(ctx context.Context, network, ad
 	headers := http.Header{}
 	headers.Add(transport.HeaderNetworkType, transport.TCPNetwork)
 	headers.Add(transport.HeaderDstAddress, addr)
+	if d.Authenticator != nil {
+		d.Authenticator.AddAuthenticationHeaders(&headers)
+	}
 	wssCon, _, err := websocket.DefaultDialer.DialContext(ctx, d.Endpoint.String(), headers)
 	if err != nil {
 		return nil, fmt.Errorf("error when dialing Websocket tunnel %s: %v", d.Endpoint.String(), err)

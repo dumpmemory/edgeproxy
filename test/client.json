@@ -1,0 +1,17 @@
+{
+    "hosts": [
+        "spiffe://example.com/users/good-user-123"
+    ],
+    "key": {
+        "algo": "ecdsa",
+        "size": 256
+    },
+    "names": [
+        {
+            "C": "US",
+            "ST": "CA",
+            "L": "San Francisco"
+        }
+    ]
+}
+

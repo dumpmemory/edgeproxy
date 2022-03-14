@@ -106,5 +106,62 @@ server:
 Server allows configuration hot reloading with ```--watch-config```
 
 
+### Certificate Based Authentication
+
+The server can be configured to authenticate clients with a [X.509 SPIFFE Verifiable Identity Document](https://github.com/spiffe/spiffe/blob/main/standards/X509-SVID.md#2-spiffe-id) 
+by validating both their cert and a JWT assertion generated from that keypair.
+
+On the server, you have a `root_bundle` for a PEM CA chain of trust, and a [trust_domain](https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE-ID.md#21-trust-domain). 
+You can also allow/deny list specific [paths](https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE-ID.md#22-path) 
+
+```yaml
+server:
+  auth:
+    ca:
+      root_bundle: test/ca.pem
+      trust_domain: example.com
+      paths:
+        allowed:
+          - "/users/.*"
+        denied:
+          - "/users/bad-user.*"
+```
+
+Clients then have to be configured to use a SPIFFE compatible client certificate and key
+
+```yaml
+client:
+  socks5: true
+  auth:
+    acl: path/to/acl.csv
+    ca:
+      key: test/client-key.pem
+      cert: test/client.pem
+```
+
+Check out [cfssl](https://github.com/cloudflare/cfssl) for an easy way to run a CA.
+
+### Access Control
+This project utilizes [casbin](https://github.com/casbin/casbin) to provide a flexible access control policy language.  
+Use the `acl` parameter to point to a policy CSV.
+
+Policy lines take the form 
+
+```p, <subject>, <ip:port>, <tcp/udp>, <allow/deny>```
+
+`deny` takes precedence over `allow`.  `*` matches are allowed for `subjects` or in `ip:port` matches.
+
+Example policy file
+```casbincsv
+p, spiffe://example.com/users/*, 34.117.59.81:443, tcp, allow
+p, spiffe://example.com/users/good-user-123, *:*, tcp, allow
+p, spiffe://example.com/users/good-user-123, *:80, tcp, deny
+p, spiffe://example.com/users/good-user-456, *:443, tcp, allow
+p, spiffe://example.com/users/bad-user-*, *:*, tcp, deny
+```
 
 
+# TODO:
+
+* Unify firewall and casbin code
+* Change casbin model to seperate IP and port, to allow for ip masking/CIDRs

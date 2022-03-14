@@ -3,9 +3,11 @@ package config
 import (
 	proxy "edgeproxy/client/proxy"
 	"edgeproxy/ipaccess"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -108,23 +110,72 @@ type ApplicationConfig struct {
 
 type ClientConfig struct {
 	EnableProxy              bool
-	EnableSocks5             bool
+	EnableSocks5             bool `mapstructure:"socks5"`
 	HttpProxyPort            int
 	Socks5Port               int
 	TransportType            TransportType
 	WebSocketTransportConfig WebSocketTransportConfig
 	TransparentProxyList     TransparentProxyMappingList
 	PortForwardList          PortForwardingMappingList
+	Auth                     ClientAuthConfig `mapstructure:"auth"`
 }
 
 type ServerConfig struct {
 	HttpPort      int              `mapstructure:"httpPort"`
 	FirewallRules *ipaccess.Policy `mapstructure:"firewall"`
+	Auth          ServerAuthConfig `mapstructure:"auth"`
+}
+
+type ClientAuthConfig struct {
+	CaConfig ClientAuthCaConfig `mapstructure:"ca"`
+}
+
+type ServerAuthConfig struct {
+	CaConfig      ServerAuthCaConfig `mapstructure:"ca"`
+	AclPolicyPath string             `mapstructure:"acl"`
+}
+
+type PathsConfig struct {
+	Allowed []string `mapstructure:"allowed"`
+	Denied  []string `mapstructure:"denied"`
+}
+
+func (c PathsConfig) AllowedPath(path string) bool {
+	for _, allow := range c.Allowed {
+		// TODO: could pre-compile these regexes
+		r, _ := regexp.Compile(allow)
+		if r.MatchString(path) {
+			for _, deny := range c.Denied {
+				rDeny, _ := regexp.Compile(deny)
+				if rDeny.MatchString(path) {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	return false
+}
+
+type ClientAuthCaConfig struct {
+	Key         string `mapstructure:"key"`
+	Certificate string `mapstructure:"cert"`
+}
+
+type ServerAuthCaConfig struct {
+	TrustedRoot      string `mapstructure:"root_bundle"`
+	SpireTrustDomain string `mapstructure:"trust_domain"`
+	Paths            PathsConfig
 }
 
 func (s ServerConfig) Validate() error {
 	if s.HttpPort <= 0 || s.HttpPort > 65635 {
 		return fmt.Errorf("invalid Server Http port %d", s.HttpPort)
+	}
+	if s.Auth.CaConfig.TrustedRoot != "" {
+		if s.Auth.CaConfig.SpireTrustDomain == "" {
+			return errors.New("must set a SPIFFE trust domain")
+		}
 	}
 	return nil
 }

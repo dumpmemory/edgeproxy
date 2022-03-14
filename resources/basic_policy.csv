@@ -1,0 +1,5 @@
+p, spiffe://example.com/users/*, 34.117.59.81:443, tcp, allow
+p, spiffe://example.com/users/good-user-123, *:*, tcp, allow
+p, spiffe://example.com/users/good-user-123, *:80, tcp, deny
+p, spiffe://example.com/users/good-user-456, *:443, tcp, allow
+p, spiffe://example.com/users/bad-user-*, *:*, tcp, deny

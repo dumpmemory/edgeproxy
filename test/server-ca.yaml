@@ -1,0 +1,11 @@
+server:
+  acl: resources/basic_policy.csv
+  auth:
+    ca:
+      root_bundle: test/ca.pem
+      trust_domain: example.com
+      paths:
+        allowed:
+          - "/users/.*"
+        denied:
+          - "/users/bad-user.*"

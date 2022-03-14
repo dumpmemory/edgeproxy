@@ -5,9 +5,19 @@ import (
 	"edgeproxy/transport"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
+
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	connectionsAccepted = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "edgeproxy_wss_connections_accepted",
+		Help: "Accepted WSS connections",
+	})
 )
 
 type WebSocketHandler interface {
@@ -25,6 +35,7 @@ func NewWebSocketHandler(ctx context.Context) WebSocketHandler {
 		upgrader: websocket.Upgrader{},
 	}
 }
+
 
 func (ws *wsHandler) SocketHandler(w http.ResponseWriter, r *http.Request) {
 	netType := r.Header.Get(transport.HeaderNetworkType)
@@ -50,8 +61,8 @@ func (ws *wsHandler) SocketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer dstConn.Close()
+	connectionsAccepted.Inc()
 	transport.Stream(tunnelConn, dstConn)
-
 }
 
 func (ws *wsHandler) InvalidRequest(w http.ResponseWriter, err error) {

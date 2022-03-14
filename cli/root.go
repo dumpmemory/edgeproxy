@@ -97,7 +97,7 @@ func initConfig() {
 	))
 	if err := readConfiguration(configOption); err != nil {
 		log.Error(err)
-		os.Exit(1)
+		//os.Exit(1)
 	}
 	if watchConfig {
 		log.Infof("Watching configuration updates")

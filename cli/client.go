@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"edgeproxy/client/clientauth"
 	"edgeproxy/client/proxy"
 	"edgeproxy/client/tcp"
 	"edgeproxy/client/websocket"
@@ -24,17 +25,18 @@ var (
 				log.SetLevel(log.DebugLevel)
 				log.Debug("Verbose mode enabled")
 			}
-
+			log.Debug(clientConfig)
 			if err = clientConfig.Validate(); err != nil {
 				log.Errorf("invalid Client Parameters %v", err)
 				os.Exit(invalidConfig)
 			}
+			authenticator, _ := loadAuthenticator()
 			switch clientConfig.TransportType {
 			case config.TcpTransport:
 				dialer = tcp.NewTCPDialer()
 				break
 			case config.WebsocketTransport:
-				dialer, err = websocket.NewWebSocketDialer(clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint)
+				dialer, err = websocket.NewWebSocketDialer(clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, authenticator)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -73,6 +75,17 @@ var (
 	}
 )
 
+func loadAuthenticator() (clientauth.Authenticator, error) {
+	log.Println(clientConfig.Auth)
+	if (clientConfig.Auth.CaConfig != config.ClientAuthCaConfig{}) {
+		authenticator := clientauth.JwtAuthenticator{}
+		authenticator.Load(clientConfig.Auth.CaConfig)
+		return authenticator, nil
+	} else {
+		return clientauth.NoopAuthenticator{}, nil
+	}
+}
+
 func init() {
 
 	RootCmd.AddCommand(clientCmd)
@@ -92,4 +105,5 @@ func init() {
 	clientCmd.PersistentFlags().VarP(&clientConfig.TransparentProxyList, "transparent-proxy", "k", "Create a transparent Proxy, expected format `5000#TCP#1.1.1.1:5000`")
 	clientCmd.PersistentFlags().VarP(&clientConfig.PortForwardList, "port-forward", "f", "Port forward local port to remote TCP service over WebSocket,expected format `5000#TCP#wss://mytunnelendpoint`")
 
+	// TODO: auth config
 }
