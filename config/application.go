@@ -2,7 +2,6 @@ package config
 
 import (
 	proxy "edgeproxy/client/proxy"
-	"edgeproxy/ipaccess"
 	"errors"
 	"fmt"
 	"net"
@@ -121,9 +120,8 @@ type ClientConfig struct {
 }
 
 type ServerConfig struct {
-	HttpPort      int              `mapstructure:"httpPort"`
-	FirewallRules *ipaccess.Policy `mapstructure:"firewall"`
-	Auth          ServerAuthConfig `mapstructure:"auth"`
+	HttpPort int              `mapstructure:"httpPort"`
+	Auth     ServerAuthConfig `mapstructure:"auth"`
 }
 
 type ClientAuthConfig struct {

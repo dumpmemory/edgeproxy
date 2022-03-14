@@ -20,21 +20,21 @@ type httpServer struct {
 	srvCertPath string
 	srvKeyPath  string
 	IsReady     *atomic.Value
-	authorizers []authorization.Authorizer
+	authorizer  authorization.Authorizer
 	acl         *authorization.PolicyEnforcer
 }
 
-func NewHttpServer(ctx context.Context, authorizers []authorization.Authorizer, acl *authorization.PolicyEnforcer, httpPort int) httpServer {
+func NewHttpServer(ctx context.Context, authorizers authorization.Authorizer, acl *authorization.PolicyEnforcer, httpPort int) httpServer {
 	return NewHttpServerWithTLS(ctx, authorizers, acl, httpPort, "", "")
 }
 
-func NewHttpServerWithTLS(ctx context.Context, authorizers []authorization.Authorizer, policyEnforcer *authorization.PolicyEnforcer, httpPort int, srvCertPath string, srvKeyPath string) httpServer {
+func NewHttpServerWithTLS(ctx context.Context, authorizer authorization.Authorizer, policyEnforcer *authorization.PolicyEnforcer, httpPort int, srvCertPath string, srvKeyPath string) httpServer {
 	wsHandler := handlers.NewWebSocketHandler(ctx)
 	muxRouter := mux.NewRouter()
 	isReady := &atomic.Value{}
 
 	isReady.Store(false)
-	muxRouter.HandleFunc("/", handlers.Authorize(authorizers[0], policyEnforcer, wsHandler.SocketHandler))
+	muxRouter.HandleFunc("/", handlers.Authorize(authorizer, policyEnforcer, wsHandler.SocketHandler))
 	muxRouter.HandleFunc("/version", handlers.VersionHandler)
 	muxRouter.HandleFunc("/healthz", handlers.Healthz)
 	muxRouter.HandleFunc("/readyz", handlers.Readyz(isReady))
@@ -46,7 +46,7 @@ func NewHttpServerWithTLS(ctx context.Context, authorizers []authorization.Autho
 			Addr:    fmt.Sprintf(":%d", httpPort),
 			Handler: muxRouter,
 		},
-		authorizers: authorizers,
+		authorizer:  authorizer,
 		IsReady:     isReady,
 		srvCertPath: srvCertPath,
 		srvKeyPath:  srvKeyPath,

@@ -4,19 +4,19 @@ import (
 	"net/http"
 )
 
-type noAuthorizer struct {
+type noopAuthorizer struct {
 }
 
-func NoAuthorizer() *noAuthorizer {
-	return &noAuthorizer{}
+func NoopAuthorizer() *noopAuthorizer {
+	return &noopAuthorizer{}
 }
 
-func (*noAuthorizer) Authorize(w http.ResponseWriter, r *http.Request) (bool, Subject) {
+func (*noopAuthorizer) Authorize(w http.ResponseWriter, r *http.Request) (bool, Subject) {
 	return true, nil
 }
 
-func (f *noAuthorizer) Start() {
+func (f *noopAuthorizer) Start() {
 }
 
-func (f *noAuthorizer) Stop() {
+func (f *noopAuthorizer) Stop() {
 }

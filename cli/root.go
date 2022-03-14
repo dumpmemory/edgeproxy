@@ -3,18 +3,15 @@ package cli
 import (
 	"context"
 	"edgeproxy/config"
-	"edgeproxy/ipaccess"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"runtime"
 )
 
@@ -91,7 +88,6 @@ func initConfig() {
 	viper.BindPFlags(RootCmd.PersistentFlags())
 
 	configOption := viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
-		StringToIPNetHookFunc(),
 		mapstructure.StringToTimeDurationHookFunc(),
 		mapstructure.StringToSliceHookFunc(","),
 	))
@@ -112,7 +108,6 @@ func viperConfigUpdate(configOption viper.DecoderConfigOption) {
 			return
 		}
 		fmt.Println("Detected Configuration Update")
-		log.Debugf("Configuration Updated: %v", appConfig.ServerConfig.FirewallRules)
 	})
 	viper.WatchConfig()
 }
@@ -127,26 +122,4 @@ func readConfiguration(configOption viper.DecoderConfigOption) error {
 		return fmt.Errorf("error when unmarshalling configuration %v", err)
 	}
 	return nil
-}
-
-func StringToIPNetHookFunc() mapstructure.DecodeHookFunc {
-	return func(
-		f reflect.Type,
-		t reflect.Type,
-		data interface{}) (interface{}, error) {
-		if f.Kind() != reflect.String {
-			return data, nil
-		}
-		if t != reflect.TypeOf(ipaccess.IPNet{}) {
-			return data, nil
-		}
-
-		// Convert it by parsing
-		_, ipnet, err := net.ParseCIDR(data.(string))
-		if err != nil {
-			return nil, err
-		}
-
-		return ipaccess.IPNet{IPNet: *ipnet}, nil
-	}
 }
