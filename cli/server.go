@@ -2,7 +2,7 @@ package cli
 
 import (
 	"edgeproxy/server"
-	"edgeproxy/server/authorization"
+	"edgeproxy/server/auth"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"os"
@@ -26,16 +26,18 @@ var (
 				log.Errorf("invalid Server Parameters %v", err)
 				os.Exit(invalidConfig)
 			}
-			var authorizer authorization.Authorizer
-
+			var authenticate auth.Authenticate
+			authenticate = auth.NoopAuthorizer()
 			if serverConfig.Auth.CaConfig.TrustedRoot != "" {
-				authorizer = authorization.NewSpireAuthorizer(cmd.Context(), serverConfig.Auth.CaConfig)
-			} else {
-				authorizer = authorization.NoopAuthorizer()
+				authenticate = auth.NewSpireAuthorizer(cmd.Context(), serverConfig.Auth.CaConfig)
 			}
+			var authorizer auth.Authorize
+			authorizer = auth.NoopAuthorizer()
+			if serverConfig.Auth.AclPolicyPath != "" {
+				authorizer = auth.NewPolicyEnforcer(serverConfig.Auth.AclPolicyPath)
 
-			acl := authorization.NewPolicyEnforcer(serverConfig.Auth.AclPolicyPath)
-			webSocketRelay := server.NewHttpServer(cmd.Context(), authorizer, acl, serverConfig.HttpPort)
+			}
+			webSocketRelay := server.NewHttpServer(cmd.Context(), authenticate, authorizer, serverConfig.HttpPort)
 			webSocketRelay.Start()
 
 			<-cmd.Context().Done()

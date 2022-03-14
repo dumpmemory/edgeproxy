@@ -1,6 +1,6 @@
 server:
-  acl: resources/basic_policy.csv
   auth:
+    acl: resources/basic_policy.csv
     ca:
       root_bundle: test/ca.pem
       trust_domain: example.com

@@ -1,4 +1,4 @@
-package authorization
+package auth
 
 import (
 	"bytes"
@@ -43,7 +43,16 @@ var remoteRead = ioutil.ReadAll
 var CRLSet = map[string]*pkix.CertificateList{}
 var crlLock = new(sync.Mutex)
 
-func NewSpireAuthorizer(ctx context.Context, caConfig config.ServerAuthCaConfig) Authorizer {
+type SpiffeSubject struct {
+	cert *x509.Certificate
+}
+
+func (s SpiffeSubject) GetSubject() string {
+	//TODO implement me
+	return s.cert.URIs[0].String()
+}
+
+func NewSpireAuthorizer(ctx context.Context, caConfig config.ServerAuthCaConfig) Authenticate {
 	authorizer := &spireAuthorizer{
 		ctx:         ctx,
 		rootPath:    caConfig.TrustedRoot,
@@ -96,7 +105,7 @@ func IsValidToken(token string, pub interface{}) bool {
 	}
 }
 
-func (f *spireAuthorizer) Authorize(w http.ResponseWriter, r *http.Request) (bool, Subject) {
+func (f *spireAuthorizer) Authenticate(w http.ResponseWriter, r *http.Request) (bool, Subject) {
 	//var port int
 	//var err error
 	token := r.Header.Get(clientauth.HeaderAuthorization)

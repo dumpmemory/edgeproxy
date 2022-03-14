@@ -2,10 +2,11 @@ package server
 
 import (
 	"context"
-	"edgeproxy/server/authorization"
+	"edgeproxy/server/auth"
 	"edgeproxy/server/handlers"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"sync/atomic"
 
@@ -15,26 +16,27 @@ import (
 )
 
 type httpServer struct {
-	ctx         context.Context
-	srv         *http.Server
-	srvCertPath string
-	srvKeyPath  string
-	IsReady     *atomic.Value
-	authorizer  authorization.Authorizer
-	acl         *authorization.PolicyEnforcer
+	ctx          context.Context
+	srv          *http.Server
+	srvCertPath  string
+	srvKeyPath   string
+	IsReady      *atomic.Value
+	authenticate auth.Authenticate
+	authorize    auth.Authorize
 }
 
-func NewHttpServer(ctx context.Context, authorizers authorization.Authorizer, acl *authorization.PolicyEnforcer, httpPort int) httpServer {
-	return NewHttpServerWithTLS(ctx, authorizers, acl, httpPort, "", "")
+func NewHttpServer(ctx context.Context, authorizers auth.Authenticate, authorize auth.Authorize, httpPort int) httpServer {
+	return NewHttpServerWithTLS(ctx, authorizers, authorize, httpPort, "", "")
 }
 
-func NewHttpServerWithTLS(ctx context.Context, authorizer authorization.Authorizer, policyEnforcer *authorization.PolicyEnforcer, httpPort int, srvCertPath string, srvKeyPath string) httpServer {
-	wsHandler := handlers.NewWebSocketHandler(ctx)
+func NewHttpServerWithTLS(ctx context.Context, authenticate auth.Authenticate, authorize auth.Authorize, httpPort int, srvCertPath string, srvKeyPath string) httpServer {
 	muxRouter := mux.NewRouter()
 	isReady := &atomic.Value{}
-
+	//TODO this probably should not be defined here
+	tunnelHandler := handlers.NewTunnelHandlder(ctx, websocket.Upgrader{})
 	isReady.Store(false)
-	muxRouter.HandleFunc("/", handlers.Authorize(authorizer, policyEnforcer, wsHandler.SocketHandler))
+	muxRouter.HandleFunc("/", tunnelHandler.TunnelHandler(authenticate, authorize))
+
 	muxRouter.HandleFunc("/version", handlers.VersionHandler)
 	muxRouter.HandleFunc("/healthz", handlers.Healthz)
 	muxRouter.HandleFunc("/readyz", handlers.Readyz(isReady))
@@ -46,11 +48,12 @@ func NewHttpServerWithTLS(ctx context.Context, authorizer authorization.Authoriz
 			Addr:    fmt.Sprintf(":%d", httpPort),
 			Handler: muxRouter,
 		},
-		authorizer:  authorizer,
-		IsReady:     isReady,
-		srvCertPath: srvCertPath,
-		srvKeyPath:  srvKeyPath,
-		acl:         policyEnforcer,
+
+		authenticate: authenticate,
+		authorize:    authorize,
+		IsReady:      isReady,
+		srvCertPath:  srvCertPath,
+		srvKeyPath:   srvKeyPath,
 	}
 }
 
