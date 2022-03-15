@@ -1,0 +1,8 @@
+p, *, ifconfig.me, 443, tcp, allow
+
+p, role_giphy, *.giphy.com, 443, tcp, allow
+p, role_giphy, giphy.com, 443, tcp, allow
+p, role_giphy, s3.amazonaws.com, 443, tcp, allow
+
+
+g, spiffe://example.com/users/good-user-123, role_giphy

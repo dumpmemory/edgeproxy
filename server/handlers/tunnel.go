@@ -54,7 +54,7 @@ func (t *tunnelHandler) TunnelHandler(authenticate auth.Authenticate, authorizer
 			// run this subject and the requested network action through casbin
 			subj := subject.GetSubject()
 			forwardAction := auth.NewForwardAction(subject, dstAddr, netType)
-			if policyRes, _ := authorizer.AuthorizeForward(forwardAction); policyRes {
+			if policyRes := authorizer.AuthorizeForward(forwardAction); policyRes {
 				//TODO support http2, if is available prefered over WebSocket
 				wsConn, err := t.upgrader.Upgrade(res, req, nil)
 				if err != nil {
