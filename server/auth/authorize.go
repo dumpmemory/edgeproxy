@@ -18,5 +18,5 @@ func NewForwardAction(subject Subject, destinationAddr, netType string) ForwardA
 }
 
 type Authorize interface {
-	AuthorizeForward(forwardAction ForwardAction) (bool, Subject)
+	AuthorizeForward(forwardAction ForwardAction) bool
 }

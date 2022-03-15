@@ -108,7 +108,7 @@ type ApplicationConfig struct {
 }
 
 type ClientConfig struct {
-	EnableProxy              bool
+	EnableProxy              bool `mapstructure:"proxy"`
 	EnableSocks5             bool `mapstructure:"socks5"`
 	HttpProxyPort            int
 	Socks5Port               int
@@ -130,7 +130,11 @@ type ClientAuthConfig struct {
 
 type ServerAuthConfig struct {
 	CaConfig      ServerAuthCaConfig `mapstructure:"ca"`
-	AclPolicyPath string             `mapstructure:"acl"`
+	AclPolicyPath AclCollection      `mapstructure:"acl"`
+}
+type AclCollection struct {
+	IpPath     string `mapstructure:"ip"`
+	DomainPath string `mapstructure:"domain"`
 }
 
 type PathsConfig struct {
