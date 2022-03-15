@@ -32,7 +32,7 @@ e = some(where (p.eft == allow)) && !some(where (p.eft == deny))
 g = _, _
 
 [matchers]
-m = globMatch(r.sub, p.sub) && ipMatch(r.ip, p.ip) && globMatch(r.port, p.port) && r.proto == p.proto
+m = g(r.sub, p.sub) && ipMatch(r.ip, p.ip) && globMatch(r.port, p.port) && r.proto == p.proto
 `
 
 const edgeproxyDomainFilteringCasbinModel = `[request_definition]
@@ -52,7 +52,6 @@ m = g(r.sub, p.sub) && globMatch(r.domain, p.domain) && globMatch(r.port, p.port
 `
 
 func NewPolicyEnforcer(aclPolicyPath config.AclCollection) *policyEnforcer {
-
 	// IP ACL is mandatory, even if it's just 0.0.0.0/0 on all ports to everyone
 	ipAdapter := fileadapter.NewAdapter(aclPolicyPath.IpPath)
 	ipModel, _ := model.NewModelFromString(edgeproxyIpFilteringCasbinModel)
@@ -62,6 +61,10 @@ func NewPolicyEnforcer(aclPolicyPath config.AclCollection) *policyEnforcer {
 		log.Fatalf("cannot load casbin ipModel: %v", err)
 	}
 	ipEnforcer.SetAdapter(ipAdapter)
+	// allows adding users to a group by * matching
+	ipEnforcer.AddNamedMatchingFunc("g", "", util.KeyMatch)
+	ipEnforcer.BuildRoleLinks()
+
 	var domainEnforcer *casbin.Enforcer
 	var domainEnforcerErr error
 
@@ -109,14 +112,15 @@ func (p *policyEnforcer) watchForPolicyChanges() error {
 						log.Error("Error reloading IpEnforcer policy")
 					} else {
 						log.Infof("IpEnforcer Policy Updated")
+						p.IpEnforcer.BuildRoleLinks()
 					}
 					if p.DomainEnforcer != nil {
 						if err = p.DomainEnforcer.LoadPolicy(); err != nil {
 							log.Error("Error reloading DomainEnforcer policy")
 						} else {
 							log.Infof("DomainEnforcer Policy Updated")
+							p.DomainEnforcer.BuildRoleLinks()
 						}
-						p.DomainEnforcer.BuildRoleLinks()
 					}
 				}
 			case err, ok := <-w.Errors:
