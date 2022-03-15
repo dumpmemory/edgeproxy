@@ -2,7 +2,8 @@ package proxy
 
 import (
 	"context"
-	"edgeproxy/transport"
+	"edgeproxy/config"
+	"edgeproxy/stream"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net"
@@ -12,27 +13,17 @@ import (
 
 type portForwarding struct {
 	ctx                   context.Context
-	portForwardingMapping []PortForwardingMapping
+	portForwardingMapping []config.PortForwardingMapping
 	dialer                Dialer
 	runningListeners      []*listenerPortForwardingMapping
 }
 
-type PortForwardingMapping struct {
-	ListenPort int
-	Network    string
-	Endpoint   *url.URL
-}
-
-func (mapping PortForwardingMapping) String() string {
-	return fmt.Sprintf("%d:%s:%s", mapping.ListenPort, mapping.Network, mapping.Endpoint.String())
-}
-
 type listenerPortForwardingMapping struct {
-	PortForwardingMapping
+	config.PortForwardingMapping
 	listener net.Listener
 }
 
-func NewPortForwarding(ctx context.Context, dialer Dialer, portForwardingMapping []PortForwardingMapping) *portForwarding {
+func NewPortForwarding(ctx context.Context, dialer Dialer, portForwardingMapping []config.PortForwardingMapping) *portForwarding {
 	portForwarding := &portForwarding{
 		ctx:                   ctx,
 		portForwardingMapping: portForwardingMapping,
@@ -81,12 +72,12 @@ func (t *portForwarding) acceptSocketConnection(listener net.Listener, endpoint 
 
 func (t *portForwarding) handleSocketConnection(originConn net.Conn, endpoint *url.URL) error {
 	defer originConn.Close()
-	tunnelConn, err := transport.NewWebsocketConnFromEndpoint(context.Background(), endpoint, nil)
+	tunnelConn, err := stream.NewWebsocketConnFromEndpoint(context.Background(), endpoint, nil)
 	if err != nil {
 		return err
 	}
 	defer tunnelConn.Close()
-	transport.NewBidirectionalStream(tunnelConn, originConn, "tunnel", "origin").Stream()
+	stream.NewBidirectionalStream(tunnelConn, originConn, "tunnel", "origin").Stream()
 	return nil
 }
 

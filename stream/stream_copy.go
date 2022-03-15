@@ -1,6 +1,7 @@
-package transport
+package stream
 
 import (
+	"edgeproxy/metrics"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"io"
@@ -44,7 +45,8 @@ func (b *BidirectionalStream) Stream() (readBytes int64, writtenBytes int64) {
 	b.waitForConnsClose()
 
 	log.Debugf("Connection terminated, sent: %d bytes received:%d bytes", *b.readBytes, *b.writtenBytes)
-
+	metrics.IncrementRouterReadBytes(*b.readBytes)
+	metrics.IncrementRouterWrittenBytes(*b.writtenBytes)
 	return *b.readBytes, *b.writtenBytes
 }
 

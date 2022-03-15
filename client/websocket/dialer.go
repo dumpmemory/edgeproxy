@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"edgeproxy/client/clientauth"
+	"edgeproxy/stream"
 	"edgeproxy/transport"
 	"fmt"
 	log "github.com/sirupsen/logrus"
@@ -35,12 +36,14 @@ func (d *webSocketConnectionDialer) DialContext(ctx context.Context, network, ad
 
 	log.Debugf("Connecting to Websocket tunnel endpoint %s, Forwarding %s %s", d.Endpoint.String(), network, addr)
 	headers := http.Header{}
-	headers.Add(transport.HeaderNetworkType, transport.TCPNetwork)
+	headers.Add(transport.HeaderNetworkType, stream.TCPNetwork)
 	headers.Add(transport.HeaderDstAddress, addr)
+	headers.Add(transport.HeaderMuxerType, string(transport.HttpNoMuxer))
+	headers.Add(transport.HeaderRouterAction, string(transport.ConnectionForwardRouterAction))
 	if d.Authenticator != nil {
 		d.Authenticator.AddAuthenticationHeaders(&headers)
 	}
-	return transport.NewWebsocketConnFromEndpoint(ctx, d.Endpoint, headers)
+	return stream.NewWebsocketConnFromEndpoint(ctx, d.Endpoint, headers)
 }
 
 func (d *webSocketConnectionDialer) Dial(network string, addr string) (net.Conn, error) {

@@ -81,7 +81,7 @@ func IsValidToken(token string, pub interface{}) bool {
 	bearerMatch := extractToken.FindStringSubmatch(token)
 	if len(bearerMatch) != 2 {
 		//not in bearer token format
-		log.Debugf("bad auth header %s", token)
+		log.Debugf("bad clientauth header %s", token)
 		return false
 	}
 

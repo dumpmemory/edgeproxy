@@ -1,4 +1,4 @@
-package transport
+package stream
 
 import (
 	"bytes"
@@ -12,11 +12,7 @@ import (
 )
 
 const (
-	HeaderNetworkType = "X-EDGEPROXY-NETWORK"
-	HeaderDstAddress  = "X-EDGEPROXY-DST"
-
 	TCPNetwork = "tcp"
-	UDPNetwork = "udp"
 )
 
 type websocketReadWriter struct {

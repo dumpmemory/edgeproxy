@@ -1,7 +1,6 @@
 package config
 
 import (
-	proxy "edgeproxy/client/proxy"
 	"errors"
 	"fmt"
 	"net"
@@ -12,8 +11,8 @@ import (
 )
 
 type TransportType string
-type TransparentProxyMappingList []proxy.TransparentProxyMapping
-type PortForwardingMappingList []proxy.PortForwardingMapping
+type TransparentProxyMappingList []TransparentProxyMapping
+type PortForwardingMappingList []PortForwardingMapping
 
 const (
 	WebsocketTransport TransportType = "WebSocketTransport"
@@ -47,7 +46,7 @@ func (t *TransparentProxyMappingList) String() string {
 func (t *TransparentProxyMappingList) Set(s string) (err error) {
 	//5000#TCP#1.1.1.1:5000
 	var portString string
-	transparentProxy := proxy.TransparentProxyMapping{}
+	transparentProxy := TransparentProxyMapping{}
 	transparentProxyString := strings.Split(s, "#")
 	transparentProxy.ListenPort, err = strconv.Atoi(transparentProxyString[0])
 	if err != nil {
@@ -82,7 +81,7 @@ func (t *PortForwardingMappingList) String() string {
 func (t *PortForwardingMappingList) Set(s string) (err error) {
 	//5000#TCP#wss://myendpoint:443
 
-	portForwardingMapping := proxy.PortForwardingMapping{}
+	portForwardingMapping := PortForwardingMapping{}
 	transparentProxyString := strings.Split(s, "#")
 	portForwardingMapping.ListenPort, err = strconv.Atoi(transparentProxyString[0])
 	if err != nil {
@@ -116,12 +115,12 @@ type ClientConfig struct {
 	WebSocketTransportConfig WebSocketTransportConfig
 	TransparentProxyList     TransparentProxyMappingList
 	PortForwardList          PortForwardingMappingList
-	Auth                     ClientAuthConfig `mapstructure:"auth"`
+	Auth                     ClientAuthConfig `mapstructure:"clientauth"`
 }
 
 type ServerConfig struct {
 	HttpPort int              `mapstructure:"httpPort"`
-	Auth     ServerAuthConfig `mapstructure:"auth"`
+	Auth     ServerAuthConfig `mapstructure:"clientauth"`
 }
 
 type ClientAuthConfig struct {

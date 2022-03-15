@@ -152,9 +152,9 @@ func (p *policyEnforcer) AuthorizeForward(forwardAction ForwardAction) bool {
 	// determine if IP or hostname
 	addr := net.ParseIP(host)
 	if addr != nil {
-		authorized, authErr = p.IpEnforcer.Enforce(forwardAction.Subject.GetSubject(), host, splitAddress[1], forwardAction.NetType)
+		authorized, authErr = p.IpEnforcer.Enforce(forwardAction.Subject, host, splitAddress[1], forwardAction.NetType)
 	} else {
-		authorized, authErr = p.DomainEnforcer.Enforce(forwardAction.Subject.GetSubject(), host, splitAddress[1], forwardAction.NetType)
+		authorized, authErr = p.DomainEnforcer.Enforce(forwardAction.Subject, host, splitAddress[1], forwardAction.NetType)
 		if authErr != nil && authorized {
 			// TODO: resolve the IP address, then additionally check it against the IpEnforcer
 		}
