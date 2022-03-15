@@ -182,8 +182,9 @@ Would add all users in this trust domain whose name starts with `test-` in to th
 - `*` matches are allowed for `subjects` or in `port` matches.
 
 
-###  Example 
-Domain policy file
+##  Example 
+
+### Domain policy file
 ```casbincsv
 p, spiffe://example.com/users/*, ifconfig.me, 443, tcp, allow
 
@@ -198,3 +199,15 @@ g, spiffe://example.com/users/ok-user-456, role_giphy
 - All users can use https://ifconfig.me
 - We have a role named `role_giphy`, which is allowed to see images on https://giphy.com
 - Users `good-user-123` and `ok-user-456` belong to `role_giphy`, thus are allowed to access https://giphy.com 
+
+
+
+### IP policy file
+```casbincsv
+p, spiffe://example.com/users/good-user-123, 0.0.0.0/0, 443, tcp, allow
+p, spiffe://example.com/users/good-user-123, 34.117.59.81/32, 80, tcp, allow
+p, *, 1.2.3.4/30, *, tcp, deny
+```
+- Let `good-user-123` use any endpoint, as long is it's on port 443
+- Let `good-user-123` talk to `34.117.59.81` only on port 80 
+- Deny all users access to the `1.2.3.4/30` subnet 
