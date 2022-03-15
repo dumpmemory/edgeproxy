@@ -3,7 +3,6 @@ package cli
 import (
 	"edgeproxy/client/clientauth"
 	"edgeproxy/client/proxy"
-	"edgeproxy/client/tcp"
 	"edgeproxy/client/websocket"
 	"edgeproxy/config"
 	log "github.com/sirupsen/logrus"
@@ -32,15 +31,13 @@ var (
 			}
 			authenticator, _ := loadAuthenticator()
 			switch clientConfig.TransportType {
-			case config.TcpTransport:
-				dialer = tcp.NewTCPDialer()
-				break
 			case config.WebsocketTransport:
 				dialer, err = websocket.NewWebSocketDialer(clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, authenticator)
 				if err != nil {
 					log.Fatal(err)
 				}
 				break
+			case config.TcpTransport:
 			case config.WireguardTransport:
 			case config.UdpTransport:
 			case config.QuickTransport:

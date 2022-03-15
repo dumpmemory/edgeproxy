@@ -88,5 +88,5 @@ func (t *transparentProxy) serveConnection(originConn net.Conn, network string, 
 		log.Error(err)
 	}
 	defer tunnelConn.Close()
-	transport.Stream(tunnelConn, originConn)
+	transport.NewBidirectionalStream(tunnelConn, originConn, "tunnel", "origin").Stream()
 }

@@ -5,7 +5,6 @@ import (
 	"edgeproxy/client/clientauth"
 	"edgeproxy/transport"
 	"fmt"
-	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
@@ -33,13 +32,7 @@ func (d *webSocketConnectionDialer) DialContext(ctx context.Context, network, ad
 	if network == "udp" {
 		return nil, fmt.Errorf("not Support %s network", network)
 	}
-	switch d.Endpoint.Scheme {
-	case "https":
-		d.Endpoint.Scheme = "wss"
-		break
-	case "http":
-		d.Endpoint.Scheme = "ws"
-	}
+
 	log.Debugf("Connecting to Websocket tunnel endpoint %s, Forwarding %s %s", d.Endpoint.String(), network, addr)
 	headers := http.Header{}
 	headers.Add(transport.HeaderNetworkType, transport.TCPNetwork)
@@ -47,12 +40,7 @@ func (d *webSocketConnectionDialer) DialContext(ctx context.Context, network, ad
 	if d.Authenticator != nil {
 		d.Authenticator.AddAuthenticationHeaders(&headers)
 	}
-	wssCon, _, err := websocket.DefaultDialer.DialContext(ctx, d.Endpoint.String(), headers)
-	if err != nil {
-		return nil, fmt.Errorf("error when dialing Websocket tunnel %s: %v", d.Endpoint.String(), err)
-	}
-	edgeReadWriter := transport.NewEdgeProxyReadWriter(wssCon)
-	return edgeReadWriter, nil
+	return transport.NewWebsocketConnFromEndpoint(ctx, d.Endpoint, headers)
 }
 
 func (d *webSocketConnectionDialer) Dial(network string, addr string) (net.Conn, error) {

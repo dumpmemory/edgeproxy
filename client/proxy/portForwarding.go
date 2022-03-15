@@ -4,7 +4,6 @@ import (
 	"context"
 	"edgeproxy/transport"
 	"fmt"
-	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
@@ -82,25 +81,12 @@ func (t *portForwarding) acceptSocketConnection(listener net.Listener, endpoint 
 
 func (t *portForwarding) handleSocketConnection(originConn net.Conn, endpoint *url.URL) error {
 	defer originConn.Close()
-	switch endpoint.Scheme {
-	case "https":
-		endpoint.Scheme = "wss"
-		break
-	case "http":
-		endpoint.Scheme = "ws"
-	}
-
-	wssTunnelConnection, _, err := websocket.DefaultDialer.Dial(endpoint.String(), nil)
-
-	if err != nil {
-		return fmt.Errorf("error when Dialing %s: %v", endpoint, err)
-	}
-	tunnelConn := transport.NewEdgeProxyReadWriter(wssTunnelConnection)
+	tunnelConn, err := transport.NewWebsocketConnFromEndpoint(context.Background(), endpoint, nil)
 	if err != nil {
 		return err
 	}
 	defer tunnelConn.Close()
-	transport.Stream(tunnelConn, originConn)
+	transport.NewBidirectionalStream(tunnelConn, originConn, "tunnel", "origin").Stream()
 	return nil
 }
 

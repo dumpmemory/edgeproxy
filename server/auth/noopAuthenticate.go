@@ -26,9 +26,3 @@ func (*noopAuthAuthorizer) Authenticate(w http.ResponseWriter, r *http.Request) 
 func (*noopAuthAuthorizer) AuthorizeForward(forwardAction ForwardAction) (bool, Subject) {
 	return true, noopAnonymousSubject
 }
-
-func (f *noopAuthAuthorizer) Start() {
-}
-
-func (f *noopAuthAuthorizer) Stop() {
-}
