@@ -36,10 +36,10 @@ func (d *numuxWebsocketDialer) DialContext(ctx context.Context, network, addr st
 
 	log.Debugf("Connecting to Websocket tunnel endpoint %s, Forwarding %s %s", d.Endpoint.String(), network, addr)
 	headers := http.Header{}
-	headers.Add(transport.HeaderNetworkType, stream.TCPNetwork)
+	headers.Add(transport.HeaderNetworkType, transport.TcpNetType.String())
 	headers.Add(transport.HeaderDstAddress, addr)
 	headers.Add(transport.HeaderMuxerType, string(transport.HttpNoMuxer))
-	headers.Add(transport.HeaderRouterAction, string(transport.ConnectionForwardRouterAction))
+	headers.Add(transport.HeaderRouterAction, transport.ConnectionForwardRouterAction.String())
 	if d.Authenticator != nil {
 		d.Authenticator.AddAuthenticationHeaders(&headers)
 	}

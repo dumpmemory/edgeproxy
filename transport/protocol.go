@@ -61,12 +61,18 @@ type NetType uint8
 
 func RouterActionFromString(routerAction string) (RouterAction, error) {
 	switch routerAction {
-	case string(ConnectionForwardRouterAction):
+	case "forward":
 		return ConnectionForwardRouterAction, nil
 	}
 	return 0, fmt.Errorf("router Action %s not available", routerAction)
 }
-
+func (r RouterAction) String() string {
+	switch r {
+	case ConnectionForwardRouterAction:
+		return "forward"
+	}
+	return ""
+}
 func NetTypeFromStr(netType string) (NetType, error) {
 	switch netType {
 	case "tcp":
