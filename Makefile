@@ -10,10 +10,11 @@ clean:
 	rm -f ${APP}
 #CGO_ENABLED=0
 build: clean
-	GOOS=${GOOS} GOARCH=${GOARCH} go build \
+	CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build \
 		-ldflags "-X 'edgeproxy/version.release=${RELEASE}' \
 		-X 'edgeproxy/version.commit=${COMMIT}' -X 'edgeproxy/version.buildTime=${BUILD_TIME}'" \
 		-o ${APP}
+	chmod +x ${APP}
 
 run: build
 	PORT=${PORT} ./${APP}
