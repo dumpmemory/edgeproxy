@@ -1,0 +1,1 @@
+Reference architecture for a deployment with servers running in AWS.
