@@ -3,7 +3,6 @@ package cli
 import (
 	"edgeproxy/client/clientauth"
 	"edgeproxy/client/proxy"
-	"edgeproxy/client/websocket"
 	"edgeproxy/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -31,8 +30,14 @@ var (
 			}
 			authenticator, _ := loadAuthenticator()
 			switch clientConfig.TransportType {
+			case config.WebsocketMuxTransport:
+				dialer, err = proxy.NewMuxWebSocketDialer(cmd.Context(), clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, authenticator)
+				if err != nil {
+					log.Fatal(err)
+				}
+				break
 			case config.WebsocketTransport:
-				dialer, err = websocket.NewWebSocketDialer(clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, authenticator)
+				dialer, err = proxy.NewNoMuxWebSocketDialer(cmd.Context(), clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, authenticator)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -98,7 +103,7 @@ func init() {
 	clientCmd.PersistentFlags().VarP(&clientConfig.TransportType, "transport", "t", "Transport Type")
 
 	//WebSocket Transport Configuration
-	clientCmd.PersistentFlags().StringVarP(&clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, "wssTunnelEndpoint", "w", clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, "WebSocket Tunnel Endpoint")
+	clientCmd.PersistentFlags().StringVarP(&clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, "wssTunnelEndpoint", "w", clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, "WebSocket Tunnel endpoint")
 	clientCmd.PersistentFlags().VarP(&clientConfig.TransparentProxyList, "transparent-proxy", "k", "Create a transparent Proxy, expected format `5000#TCP#1.1.1.1:5000`")
 	clientCmd.PersistentFlags().VarP(&clientConfig.PortForwardList, "port-forward", "f", "Port forward local port to remote TCP service over WebSocket,expected format `5000#TCP#wss://mytunnelendpoint`")
 

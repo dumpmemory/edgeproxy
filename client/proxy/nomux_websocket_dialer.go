@@ -1,4 +1,4 @@
-package websocket
+package proxy
 
 import (
 	"context"
@@ -12,24 +12,24 @@ import (
 	"net/url"
 )
 
-type webSocketConnectionDialer struct {
+type numuxWebsocketDialer struct {
 	net.Conn
 	Endpoint      *url.URL
 	Authenticator clientauth.Authenticator
 }
 
-func NewWebSocketDialer(endpoint string, authenticator clientauth.Authenticator) (*webSocketConnectionDialer, error) {
+func NewNoMuxWebSocketDialer(ctx context.Context, endpoint string, authenticator clientauth.Authenticator) (*numuxWebsocketDialer, error) {
 	endpointUrl, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
 	}
-	return &webSocketConnectionDialer{
+	return &numuxWebsocketDialer{
 		Endpoint:      endpointUrl,
 		Authenticator: authenticator,
 	}, nil
 }
 
-func (d *webSocketConnectionDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+func (d *numuxWebsocketDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	if network == "udp" {
 		return nil, fmt.Errorf("not Support %s network", network)
 	}
@@ -46,6 +46,6 @@ func (d *webSocketConnectionDialer) DialContext(ctx context.Context, network, ad
 	return stream.NewWebsocketConnFromEndpoint(ctx, d.Endpoint, headers)
 }
 
-func (d *webSocketConnectionDialer) Dial(network string, addr string) (net.Conn, error) {
+func (d *numuxWebsocketDialer) Dial(network string, addr string) (net.Conn, error) {
 	return d.DialContext(context.Background(), network, addr)
 }

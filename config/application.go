@@ -15,11 +15,12 @@ type TransparentProxyMappingList []TransparentProxyMapping
 type PortForwardingMappingList []PortForwardingMapping
 
 const (
-	WebsocketTransport TransportType = "WebSocketTransport"
-	TcpTransport       TransportType = "TcpTransport"
-	WireguardTransport TransportType = "WireguardTransport"
-	UdpTransport       TransportType = "UDPTransport"
-	QuickTransport     TransportType = "QUICKTransport"
+	WebsocketTransport    TransportType = "WebSocketTransport"
+	WebsocketMuxTransport TransportType = "WebSocketMuxTransport"
+	TcpTransport          TransportType = "TcpTransport"
+	WireguardTransport    TransportType = "WireguardTransport"
+	UdpTransport          TransportType = "UDPTransport"
+	QuickTransport        TransportType = "QUICKTransport"
 )
 
 func (t *TransportType) String() string {
@@ -90,7 +91,7 @@ func (t *PortForwardingMappingList) Set(s string) (err error) {
 	portForwardingMapping.Network = strings.ToLower(transparentProxyString[1])
 	portForwardingMapping.Endpoint, err = url.Parse(transparentProxyString[2])
 	if err != nil {
-		return fmt.Errorf("invalid Endpoint Format for Port Forwarding Mapping: %s, %v", s, err)
+		return fmt.Errorf("invalid endpoint Format for Port Forwarding Mapping: %s, %v", s, err)
 	}
 
 	*t = append(*t, portForwardingMapping)
@@ -199,7 +200,7 @@ func (c WebSocketTransportConfig) Validate() error {
 		return fmt.Errorf("WebSocketTunnelEndpoint is mandatory")
 	}
 	if _, err := url.Parse(c.WebSocketTunnelEndpoint); err != nil {
-		return fmt.Errorf("invalid WebSocket Tunnel Endpoint %v", err)
+		return fmt.Errorf("invalid WebSocket Tunnel endpoint %v", err)
 	}
 	return nil
 }

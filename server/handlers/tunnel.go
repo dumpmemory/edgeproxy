@@ -6,6 +6,7 @@ import (
 	"edgeproxy/stream"
 	"edgeproxy/transport"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
 	"strings"
@@ -32,9 +33,19 @@ func (t *tunnelHandler) TunnelHandler(authenticate auth.Authenticate, authorizer
 			return
 		}
 
-		upgradeHeader := req.Header.Get(HeaderUpgrade)
+		muxerType, err := transport.MuxerTypeFromStr(req.Header.Get(transport.HeaderMuxerType))
+		if err != nil {
+			invalidRequest(res, err)
+			return
+		}
+		muxer, err := transport.NewMuxer(muxerType, req)
+		if err != nil {
+			invalidRequest(res, err)
+		}
+
 		var serverConn net.Conn
-		var err error
+		upgradeHeader := req.Header.Get(HeaderUpgrade)
+
 		//Choose bidirectional stream protocol
 		if strings.ToLower(upgradeHeader) == "websocket" {
 			serverConn, err = stream.NewWebSocketConnectFromServer(context.Background(), res, req)
@@ -42,18 +53,17 @@ func (t *tunnelHandler) TunnelHandler(authenticate auth.Authenticate, authorizer
 				invalidRequest(res, fmt.Errorf("error Initializing Websocket %v", err))
 				return
 			}
+		} else {
+			invalidRequest(res, fmt.Errorf("invalid bidirectioanl stream protocol"))
+			return
 		}
 
-		muxerType, err := transport.MuxerTypeFromStr(req.Header.Get(transport.HeaderMuxerType))
-		if err != nil {
-			invalidRequest(res, err)
-		}
-		muxer, err := transport.NewMuxer(muxerType, req)
-		if err != nil {
-			invalidRequest(res, err)
-		}
 		router := transport.NewRouter(authorizer)
-		muxer.ExecuteRouter(router, serverConn, subject.GetSubject())
+		err = muxer.ExecuteServerRouter(router, serverConn, subject.GetSubject())
+		if err != nil {
+			log.Debug(err)
+			//invalidRequest(res, err)
+		}
 	}
 }
 

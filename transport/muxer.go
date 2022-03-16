@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,8 +12,14 @@ const (
 	YamuxMuxer  MuxerType = "yamuxMuxer"
 )
 
+type Dialer interface {
+	// Dial connects to the given address via the proxy.
+	Dial(network, addr string) (c net.Conn, err error)
+	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
+}
+
 type Muxer interface {
-	ExecuteRouter(router *Router, tunnelConn net.Conn, subject string)
+	ExecuteServerRouter(router *Router, tunnelConn net.Conn, subject string) error
 }
 type MuxerType string
 

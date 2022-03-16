@@ -36,9 +36,14 @@ func NewHttpNoMuxer(req *http.Request) (*httpNoMuxer, error) {
 	return directRouter, nil
 }
 
-func (h *httpNoMuxer) ExecuteRouter(router *Router, tunnelConn net.Conn, subject string) {
+func (h *httpNoMuxer) ExecuteServerRouter(router *Router, tunnelConn net.Conn, subject string) error {
+	var err error
 	switch h.routerAction {
 	case ConnectionForwardRouterAction:
-		router.ConnectionForward(tunnelConn, auth.NewForwardAction(subject, h.dstAddr, h.netType))
+		err = router.ConnectionForward(tunnelConn, auth.NewForwardAction(subject, h.dstAddr, h.netType))
 	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
