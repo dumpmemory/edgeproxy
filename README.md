@@ -211,3 +211,9 @@ p, *, 1.2.3.4/30, *, tcp, deny
 - Let `good-user-123` use any endpoint, as long is it's on port 443
 - Let `good-user-123` talk to `34.117.59.81` only on port 80 
 - Deny all users access to the `1.2.3.4/30` subnet 
+
+
+# Deployment
+
+You can find example deployment architectures under the `cloud/` directory.
+- [AWS Fargate Reference](cloud/aws/README.md)
