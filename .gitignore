@@ -1,1 +1,9 @@
-.idea/.gitignore
+.idea/
+
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+.terraform.tfstate.lock.info
+terraform.tfstate*
+edgeproxy
+edgeproxy.exe
