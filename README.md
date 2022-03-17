@@ -161,7 +161,7 @@ p, spiffe://example.com/users/bad-user-*, *:*, tcp, deny
 ```
 
 
-# TODO:
+# Deployment
 
-* Unify firewall and casbin code
-* Change casbin model to seperate IP and port, to allow for ip masking/CIDRs
+You can find example deployment architectures under the `cloud/` directory.
+- [AWS Fargate Reference](cloud/aws/README.md)
