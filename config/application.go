@@ -1,7 +1,6 @@
 package config
 
 import (
-	proxy "edgeproxy/client/proxy"
 	"errors"
 	"fmt"
 	"net"
@@ -12,15 +11,16 @@ import (
 )
 
 type TransportType string
-type TransparentProxyMappingList []proxy.TransparentProxyMapping
-type PortForwardingMappingList []proxy.PortForwardingMapping
+type TransparentProxyMappingList []TransparentProxyMapping
+type PortForwardingMappingList []PortForwardingMapping
 
 const (
-	WebsocketTransport TransportType = "WebSocketTransport"
-	TcpTransport       TransportType = "TcpTransport"
-	WireguardTransport TransportType = "WireguardTransport"
-	UdpTransport       TransportType = "UDPTransport"
-	QuickTransport     TransportType = "QUICKTransport"
+	WebsocketTransport    TransportType = "WebSocketTransport"
+	WebsocketMuxTransport TransportType = "WebSocketMuxTransport"
+	TcpTransport          TransportType = "TcpTransport"
+	WireguardTransport    TransportType = "WireguardTransport"
+	UdpTransport          TransportType = "UDPTransport"
+	QuickTransport        TransportType = "QUICKTransport"
 )
 
 func (t *TransportType) String() string {
@@ -47,7 +47,7 @@ func (t *TransparentProxyMappingList) String() string {
 func (t *TransparentProxyMappingList) Set(s string) (err error) {
 	//5000#TCP#1.1.1.1:5000
 	var portString string
-	transparentProxy := proxy.TransparentProxyMapping{}
+	transparentProxy := TransparentProxyMapping{}
 	transparentProxyString := strings.Split(s, "#")
 	transparentProxy.ListenPort, err = strconv.Atoi(transparentProxyString[0])
 	if err != nil {
@@ -82,7 +82,7 @@ func (t *PortForwardingMappingList) String() string {
 func (t *PortForwardingMappingList) Set(s string) (err error) {
 	//5000#TCP#wss://myendpoint:443
 
-	portForwardingMapping := proxy.PortForwardingMapping{}
+	portForwardingMapping := PortForwardingMapping{}
 	transparentProxyString := strings.Split(s, "#")
 	portForwardingMapping.ListenPort, err = strconv.Atoi(transparentProxyString[0])
 	if err != nil {
@@ -91,7 +91,7 @@ func (t *PortForwardingMappingList) Set(s string) (err error) {
 	portForwardingMapping.Network = strings.ToLower(transparentProxyString[1])
 	portForwardingMapping.Endpoint, err = url.Parse(transparentProxyString[2])
 	if err != nil {
-		return fmt.Errorf("invalid Endpoint Format for Port Forwarding Mapping: %s, %v", s, err)
+		return fmt.Errorf("invalid endpoint Format for Port Forwarding Mapping: %s, %v", s, err)
 	}
 
 	*t = append(*t, portForwardingMapping)
@@ -108,7 +108,7 @@ type ApplicationConfig struct {
 }
 
 type ClientConfig struct {
-	EnableProxy              bool
+	EnableProxy              bool `mapstructure:"proxy"`
 	EnableSocks5             bool `mapstructure:"socks5"`
 	HttpProxyPort            int
 	Socks5Port               int
@@ -116,12 +116,12 @@ type ClientConfig struct {
 	WebSocketTransportConfig WebSocketTransportConfig
 	TransparentProxyList     TransparentProxyMappingList
 	PortForwardList          PortForwardingMappingList
-	Auth                     ClientAuthConfig `mapstructure:"auth"`
+	Auth                     ClientAuthConfig `mapstructure:"clientauth"`
 }
 
 type ServerConfig struct {
 	HttpPort int              `mapstructure:"httpPort"`
-	Auth     ServerAuthConfig `mapstructure:"auth"`
+	Auth     ServerAuthConfig `mapstructure:"clientauth"`
 }
 
 type ClientAuthConfig struct {
@@ -130,7 +130,11 @@ type ClientAuthConfig struct {
 
 type ServerAuthConfig struct {
 	CaConfig      ServerAuthCaConfig `mapstructure:"ca"`
-	AclPolicyPath string             `mapstructure:"acl"`
+	AclPolicyPath AclCollection      `mapstructure:"acl"`
+}
+type AclCollection struct {
+	IpPath     string `mapstructure:"ip"`
+	DomainPath string `mapstructure:"domain"`
 }
 
 type PathsConfig struct {
@@ -196,7 +200,7 @@ func (c WebSocketTransportConfig) Validate() error {
 		return fmt.Errorf("WebSocketTunnelEndpoint is mandatory")
 	}
 	if _, err := url.Parse(c.WebSocketTunnelEndpoint); err != nil {
-		return fmt.Errorf("invalid WebSocket Tunnel Endpoint %v", err)
+		return fmt.Errorf("invalid WebSocket Tunnel endpoint %v", err)
 	}
 	return nil
 }

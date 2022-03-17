@@ -6,7 +6,6 @@ import (
 	"edgeproxy/server/handlers"
 	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"sync/atomic"
 
@@ -33,7 +32,7 @@ func NewHttpServerWithTLS(ctx context.Context, authenticate auth.Authenticate, a
 	muxRouter := mux.NewRouter()
 	isReady := &atomic.Value{}
 	//TODO this probably should not be defined here
-	tunnelHandler := handlers.NewTunnelHandlder(ctx, websocket.Upgrader{})
+	tunnelHandler := handlers.NewTunnelHandlder(ctx)
 	isReady.Store(false)
 	muxRouter.HandleFunc("/", tunnelHandler.TunnelHandler(authenticate, authorize))
 
