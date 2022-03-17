@@ -29,7 +29,12 @@ func NewWebsocketConnFromEndpoint(ctx context.Context, endpoint *url.URL, header
 	case "http":
 		endpoint.Scheme = "ws"
 	}
-	wssCon, _, err := websocket.DefaultDialer.DialContext(ctx, endpoint.String(), headers)
+	wssDialer := websocket.Dialer{
+		HandshakeTimeout: 45 * time.Second,
+		ReadBufferSize:   32768,
+		WriteBufferSize:  32768,
+	}
+	wssCon, _, err := wssDialer.DialContext(ctx, endpoint.String(), headers)
 	if err != nil {
 		return nil, fmt.Errorf("error when dialing Websocket tunnel %s: %v", endpoint, err)
 	}
@@ -40,7 +45,10 @@ func NewWebsocketConnFromEndpoint(ctx context.Context, endpoint *url.URL, header
 }
 
 func NewWebSocketConnectFromServer(ctx context.Context, res http.ResponseWriter, req *http.Request) (*websocketReadWriter, error) {
-	upgrader := websocket.Upgrader{}
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  32768,
+		WriteBufferSize: 32768,
+	}
 	wsConn, err := upgrader.Upgrade(res, req, nil)
 	if err != nil {
 		return nil, err

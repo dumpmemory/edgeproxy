@@ -4,7 +4,6 @@ import (
 	"edgeproxy/server/auth"
 	log "github.com/sirupsen/logrus"
 	"net"
-	"os"
 	"time"
 )
 import "github.com/hashicorp/yamux"
@@ -20,10 +19,10 @@ func NewYamuxMuxer() (*yamuxMuxer, error) {
 		EnableKeepAlive:        true,
 		KeepAliveInterval:      30 * time.Second,
 		ConnectionWriteTimeout: 10 * time.Second,
-		MaxStreamWindowSize:    256 * 1024,
+		MaxStreamWindowSize:    1024 * 1024,
 		StreamCloseTimeout:     5 * time.Minute,
 		StreamOpenTimeout:      75 * time.Second,
-		LogOutput:              os.Stderr,
+		LogOutput:              log.New().WriterLevel(log.DebugLevel),
 	}
 	m := &yamuxMuxer{
 		yamuxConfig: yamuxConfig,

@@ -25,6 +25,7 @@ type muxWebsocketDialer struct {
 	muxSession     *yamux.Session
 	ws             recws.RecConn
 	forceReconnect chan uint8
+	yamuxConfig    *yamux.Config
 }
 
 func NewMuxWebSocketDialer(ctx context.Context, endpoint string, authenticator clientauth.Authenticator) (*muxWebsocketDialer, error) {
@@ -37,12 +38,24 @@ func NewMuxWebSocketDialer(ctx context.Context, endpoint string, authenticator c
 		KeepAliveTimeout: 10 * time.Second,
 	}
 
+	yamuxConfig := &yamux.Config{
+		AcceptBacklog:          256,
+		EnableKeepAlive:        true,
+		KeepAliveInterval:      30 * time.Second,
+		ConnectionWriteTimeout: 10 * time.Second,
+		MaxStreamWindowSize:    1024 * 1024,
+		StreamCloseTimeout:     5 * time.Minute,
+		StreamOpenTimeout:      75 * time.Second,
+		LogOutput:              log.New().WriterLevel(log.DebugLevel),
+	}
+
 	wssMux := &muxWebsocketDialer{
 		ctx:            ctx,
 		rw:             sync.RWMutex{},
 		endpoint:       endpointUrl,
 		authenticator:  authenticator,
 		ws:             ws,
+		yamuxConfig:    yamuxConfig,
 		forceReconnect: make(chan uint8, 2),
 	}
 
@@ -103,7 +116,7 @@ func (d *muxWebsocketDialer) initializeConnection() error {
 		return err
 	}
 
-	session, err := yamux.Client(con, nil)
+	session, err := yamux.Client(con, d.yamuxConfig)
 	if err != nil {
 		return err
 	}
