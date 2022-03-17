@@ -13,8 +13,12 @@ RUN apk add --no-cache \
         ca-certificates \
         libmnl iproute2 iptables
 
-ENV PORT=9180
-EXPOSE $PORT
+ENV SERVER_PORT=9180
+ENV PROXY_PORT=9080
+ENV SOCKS_PORT=9022
+EXPOSE $SERVER_PORT
+EXPOSE $PROXY_PORT
+EXPOSE $SOCKS_PORT
 
 ENTRYPOINT ["/edgeproxy"]
 CMD ["--help"] 

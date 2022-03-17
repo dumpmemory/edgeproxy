@@ -1,5 +1,6 @@
 client:
   socks5: true
+  proxy: true
   auth:
     ca:
       key: test/client-1-key.pem

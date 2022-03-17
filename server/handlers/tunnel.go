@@ -3,33 +3,26 @@ package handlers
 import (
 	"context"
 	"edgeproxy/server/auth"
+	"edgeproxy/stream"
 	"edgeproxy/transport"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
+	"strings"
 )
 
 var (
-	connectionsAccepted = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "edgeproxy_wss_connections_accepted",
-		Help: "Accepted WSS connections",
-	})
+	HeaderUpgrade = "Upgrade"
 )
 
 type httpHandlerFunc func(http.ResponseWriter, *http.Request)
 
 type tunnelHandler struct {
-	upgrader websocket.Upgrader
 }
 
-func NewTunnelHandlder(ctx context.Context, wssUpgrader websocket.Upgrader) *tunnelHandler {
-	return &tunnelHandler{
-		upgrader: wssUpgrader,
-	}
+func NewTunnelHandlder(ctx context.Context) *tunnelHandler {
+	return &tunnelHandler{}
 }
 
 func (t *tunnelHandler) TunnelHandler(authenticate auth.Authenticate, authorizer auth.Authorize) httpHandlerFunc {
@@ -40,39 +33,36 @@ func (t *tunnelHandler) TunnelHandler(authenticate auth.Authenticate, authorizer
 			return
 		}
 
-		netType := req.Header.Get(transport.HeaderNetworkType)
-		dstAddr := req.Header.Get(transport.HeaderDstAddress)
-		if netType == "" {
-			invalidRequest(res, fmt.Errorf("invalid Net Type"))
+		muxerType, err := transport.MuxerTypeFromStr(req.Header.Get(transport.HeaderMuxerType))
+		if err != nil {
+			invalidRequest(res, err)
 			return
 		}
-		if dstAddr == "" {
-			invalidRequest(res, fmt.Errorf("invalid dst Addr"))
-			return
+		muxer, err := transport.NewMuxer(muxerType, req)
+		if err != nil {
+			invalidRequest(res, err)
 		}
-		if subject != nil {
-			// run this subject and the requested network action through casbin
-			subj := subject.GetSubject()
-			forwardAction := auth.NewForwardAction(subject, dstAddr, netType)
-			if policyRes, _ := authorizer.AuthorizeForward(forwardAction); policyRes {
-				//TODO support http2, if is available prefered over WebSocket
-				wsConn, err := t.upgrader.Upgrade(res, req, nil)
-				if err != nil {
-					invalidRequest(res, fmt.Errorf("error during connection upgrade: %v", err))
-					return
-				}
 
-				webSocketStream(wsConn, dstAddr, netType)
-				return
-			} else {
-				log.Infof("denied %s access to %s/%s", subj, netType, dstAddr)
-				res.WriteHeader(http.StatusForbidden)
+		var serverConn net.Conn
+		upgradeHeader := req.Header.Get(HeaderUpgrade)
+
+		//Choose bidirectional stream protocol
+		if strings.ToLower(upgradeHeader) == "websocket" {
+			serverConn, err = stream.NewWebSocketConnectFromServer(context.Background(), res, req)
+			if err != nil {
+				invalidRequest(res, fmt.Errorf("error Initializing Websocket %v", err))
 				return
 			}
 		} else {
-			log.Infof("no subject, denied access to %s/%s", netType, dstAddr)
-			res.WriteHeader(http.StatusForbidden)
+			invalidRequest(res, fmt.Errorf("invalid bidirectioanl stream protocol"))
 			return
+		}
+
+		router := transport.NewRouter(authorizer)
+		err = muxer.ExecuteServerRouter(router, serverConn, subject.GetSubject())
+		if err != nil {
+			log.Debug(err)
+			//invalidRequest(res, err)
 		}
 	}
 }
@@ -80,16 +70,4 @@ func (t *tunnelHandler) TunnelHandler(authenticate auth.Authenticate, authorizer
 func invalidRequest(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte(err.Error()))
-}
-
-func webSocketStream(wsConn *websocket.Conn, dstAddr, netType string) {
-	tunnelConn := transport.NewEdgeProxyReadWriter(wsConn)
-	dstConn, err := net.Dial(netType, dstAddr)
-	if err != nil {
-		log.Errorf("Can not connect to %s: %v", dstAddr, err)
-		return
-	}
-	defer dstConn.Close()
-	connectionsAccepted.Inc()
-	transport.Stream(tunnelConn, dstConn)
 }

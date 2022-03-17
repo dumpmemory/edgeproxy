@@ -33,7 +33,7 @@ var (
 			}
 			var authorizer auth.Authorize
 			authorizer = auth.NoopAuthorizer()
-			if serverConfig.Auth.AclPolicyPath != "" {
+			if serverConfig.Auth.AclPolicyPath.IpPath != "" || serverConfig.Auth.AclPolicyPath.DomainPath != "" {
 				authorizer = auth.NewPolicyEnforcer(serverConfig.Auth.AclPolicyPath)
 
 			}

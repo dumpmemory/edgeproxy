@@ -117,6 +117,9 @@ You can also allow/deny list specific [paths](https://github.com/spiffe/spiffe/b
 ```yaml
 server:
   auth:
+    acl:
+      ip: resources/example_ip_policy.csv
+      domain: resources/example_domain_policy.csv
     ca:
       root_bundle: test/ca.pem
       trust_domain: example.com
@@ -133,7 +136,6 @@ Clients then have to be configured to use a SPIFFE compatible client certificate
 client:
   socks5: true
   auth:
-    acl: path/to/acl.csv
     ca:
       key: test/client-key.pem
       cert: test/client.pem
@@ -141,24 +143,74 @@ client:
 
 Check out [cfssl](https://github.com/cloudflare/cfssl) for an easy way to run a CA.
 
-### Access Control
+## Access Control
 This project utilizes [casbin](https://github.com/casbin/casbin) to provide a flexible access control policy language.  
 Use the `acl` parameter to point to a policy CSV.
 
-Policy lines take the form 
+There are two ACL files for the server, configured with the following properties in your `config.yaml`
+- `server.auth.acl.ip`,  for filtering IP addresses (which is all there is to go on in a SOCKS proxy) 
+- `server.auth.acl.doman`, for filtering on hostnames (for example, with an HTTP PROXY)
 
-```p, <subject>, <ip:port>, <tcp/udp>, <allow/deny>```
 
-`deny` takes precedence over `allow`.  `*` matches are allowed for `subjects` or in `ip:port` matches.
+### IP ACL Entries
 
-Example policy file
-```casbincsv
-p, spiffe://example.com/users/*, 34.117.59.81:443, tcp, allow
-p, spiffe://example.com/users/good-user-123, *:*, tcp, allow
-p, spiffe://example.com/users/good-user-123, *:80, tcp, deny
-p, spiffe://example.com/users/good-user-456, *:443, tcp, allow
-p, spiffe://example.com/users/bad-user-*, *:*, tcp, deny
 ```
+p, <subject/role>, <IP Address or CIDR>, <port>, <tcp/udp>, <allow/deny>
+```
+
+### Domain ACL Entries 
+(look very similar, but they match on a domain name instead of being able to do IP network matching) 
+
+```
+p, <subject/role>, <*-globbable domain name>, <port>, <tcp/udp>, <allow/deny>
+```
+
+### Groups
+
+Groups are supported with a `g` line.  Identities can be associated to groups with `*` glob matching.
+
+For example: 
+
+```casbincsv
+g, spiffe://example.com/users/test-*, role_test
+```
+
+Would add all users in this trust domain whose name starts with `test-` in to the `role_test` group.
+
+### General Rules
+- `deny` takes precedence over `allow`.
+- `*` matches are allowed for `subjects` or in `port` matches.
+
+
+##  Example 
+
+### Domain policy file
+```casbincsv
+p, spiffe://example.com/users/*, ifconfig.me, 443, tcp, allow
+
+p, role_giphy, *.giphy.com, 443, tcp, allow
+p, role_giphy, giphy.com, 443, tcp, allow
+p, role_giphy, s3.amazonaws.com, 443, tcp, allow
+
+
+g, spiffe://example.com/users/good-user-123, role_giphy
+g, spiffe://example.com/users/ok-user-456, role_giphy
+```
+- All users can use https://ifconfig.me
+- We have a role named `role_giphy`, which is allowed to see images on https://giphy.com
+- Users `good-user-123` and `ok-user-456` belong to `role_giphy`, thus are allowed to access https://giphy.com 
+
+
+
+### IP policy file
+```casbincsv
+p, spiffe://example.com/users/good-user-123, 0.0.0.0/0, 443, tcp, allow
+p, spiffe://example.com/users/good-user-123, 34.117.59.81/32, 80, tcp, allow
+p, *, 1.2.3.4/30, *, tcp, deny
+```
+- Let `good-user-123` use any endpoint, as long is it's on port 443
+- Let `good-user-123` talk to `34.117.59.81` only on port 80 
+- Deny all users access to the `1.2.3.4/30` subnet 
 
 
 # Deployment

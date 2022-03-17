@@ -2,7 +2,8 @@ package proxy
 
 import (
 	"context"
-	"edgeproxy/transport"
+	"edgeproxy/config"
+	"edgeproxy/stream"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net"
@@ -10,28 +11,17 @@ import (
 
 type transparentProxy struct {
 	ctx                      context.Context
-	transparentProxyMappings []TransparentProxyMapping
+	transparentProxyMappings []config.TransparentProxyMapping
 	dialer                   Dialer
 	runningListeners         []*listenerTransparentProxyMapping
 }
 
-type TransparentProxyMapping struct {
-	ListenPort      int
-	Network         string
-	DestinationHost string
-	DestinationPort int
-}
-
-func (mapping TransparentProxyMapping) String() string {
-	return fmt.Sprintf("%d:%s:%s:%d", mapping.ListenPort, mapping.Network, mapping.DestinationHost, mapping.DestinationPort)
-}
-
 type listenerTransparentProxyMapping struct {
-	TransparentProxyMapping
+	config.TransparentProxyMapping
 	listener net.Listener
 }
 
-func NewTransparentProxy(ctx context.Context, dialer Dialer, transparentProxyMappings []TransparentProxyMapping) Proxy {
+func NewTransparentProxy(ctx context.Context, dialer Dialer, transparentProxyMappings []config.TransparentProxyMapping) Proxy {
 	transparentProxy := &transparentProxy{
 		ctx:                      ctx,
 		transparentProxyMappings: transparentProxyMappings,
@@ -72,10 +62,10 @@ func (t *transparentProxy) serve(listener net.Listener, mapping *listenerTranspa
 	for {
 		//TODO How we stop this gracefully?
 		originConn, err := listener.Accept()
-		log.Debugf("Accepted new TCP Connection")
 		if err != nil {
 			log.Warnf("Error when accepting incoming connection %s: %v", listener.Addr().String(), err)
 		}
+		log.Debugf("Accepted new TCP Connection")
 
 		go t.serveConnection(originConn, listener.Addr().Network(), destinationAddr)
 	}
@@ -88,5 +78,5 @@ func (t *transparentProxy) serveConnection(originConn net.Conn, network string, 
 		log.Error(err)
 	}
 	defer tunnelConn.Close()
-	transport.Stream(tunnelConn, originConn)
+	stream.NewBidirectionalStream(tunnelConn, originConn, "tunnel", "origin").Stream()
 }
