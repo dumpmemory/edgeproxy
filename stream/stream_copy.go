@@ -6,7 +6,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io"
 	"runtime/debug"
-	"sync"
 )
 
 type copyDirection uint
@@ -17,7 +16,7 @@ const (
 )
 
 type BidirectionalStream struct {
-	wg           sync.WaitGroup
+	doneChan     chan struct{}
 	readBytes    *int64
 	writtenBytes *int64
 	conn1        io.ReadWriter
@@ -28,7 +27,7 @@ type BidirectionalStream struct {
 
 func NewBidirectionalStream(conn1, conn2 io.ReadWriter, conn1Name, conn2Name string) *BidirectionalStream {
 	return &BidirectionalStream{
-		wg:           sync.WaitGroup{},
+		doneChan:     make(chan struct{}, 2),
 		readBytes:    new(int64),
 		writtenBytes: new(int64),
 		conn1:        conn1,
@@ -39,15 +38,22 @@ func NewBidirectionalStream(conn1, conn2 io.ReadWriter, conn1Name, conn2Name str
 }
 
 func (b *BidirectionalStream) Stream() (readBytes int64, writtenBytes int64) {
-	b.wg.Add(2)
 	go b.copyData(b.conn1, b.conn2, fmt.Sprintf("%s->%s", b.conn1Name, b.conn2Name), readDirection)
 	go b.copyData(b.conn2, b.conn1, fmt.Sprintf("%s->%s", b.conn2Name, b.conn1Name), writeDirection)
-	b.waitForConnsClose()
+	b.waitAnyDone()
 
 	log.Debugf("Connection terminated, sent: %d bytes received:%d bytes", *b.readBytes, *b.writtenBytes)
 	metrics.IncrementRouterReadBytes(*b.readBytes)
 	metrics.IncrementRouterWrittenBytes(*b.writtenBytes)
 	return *b.readBytes, *b.writtenBytes
+}
+
+func (b *BidirectionalStream) markUniStreamDone() {
+	b.doneChan <- struct{}{}
+}
+
+func (b *BidirectionalStream) waitAnyDone() {
+	<-b.doneChan
 }
 
 func (b *BidirectionalStream) copyData(dst, src io.ReadWriter, dir string, direction copyDirection) {
@@ -65,10 +71,6 @@ func (b *BidirectionalStream) copyData(dst, src io.ReadWriter, dir string, direc
 	} else {
 		*b.writtenBytes = bytesTransfered
 	}
-	b.wg.Done()
+	b.markUniStreamDone()
 
-}
-
-func (s *BidirectionalStream) waitForConnsClose() {
-	s.wg.Wait()
 }

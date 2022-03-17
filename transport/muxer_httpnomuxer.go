@@ -37,6 +37,7 @@ func NewHttpNoMuxer(req *http.Request) (*httpNoMuxer, error) {
 }
 
 func (h *httpNoMuxer) ExecuteServerRouter(router *Router, tunnelConn net.Conn, subject string) error {
+	defer tunnelConn.Close()
 	var err error
 	switch h.routerAction {
 	case ConnectionForwardRouterAction:

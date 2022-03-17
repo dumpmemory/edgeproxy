@@ -46,7 +46,7 @@ func NewMuxWebSocketDialer(ctx context.Context, endpoint string, authenticator c
 		MaxStreamWindowSize:    1024 * 1024,
 		StreamCloseTimeout:     5 * time.Minute,
 		StreamOpenTimeout:      75 * time.Second,
-		LogOutput:              log.New().WriterLevel(log.DebugLevel),
+		LogOutput:              log.StandardLogger().WriterLevel(log.DebugLevel),
 	}
 
 	wssMux := &muxWebsocketDialer{
@@ -87,6 +87,12 @@ func (d *muxWebsocketDialer) DialContext(ctx context.Context, network, addr stri
 	if err != nil {
 		return nil, err
 	}
+	go func() {
+		<-ctx.Done()
+		if conn != nil {
+			conn.Close()
+		}
+	}()
 
 	f, fwd := transport.NewForwardFrame(addr, nt)
 	_, err = conn.Write(f)
@@ -97,6 +103,7 @@ func (d *muxWebsocketDialer) DialContext(ctx context.Context, network, addr stri
 	if err != nil {
 		return nil, fmt.Errorf("error when Writting Forward Frame: %v", err)
 	}
+
 	return conn, nil
 }
 
@@ -171,6 +178,8 @@ func (d *muxWebsocketDialer) keepAlive() {
 		case <-d.ctx.Done():
 			return
 		case <-time.After(time.Second * 5):
+
+			log.Debugf("Yamux Num Streams %d", d.muxSession.NumStreams())
 			t, err := d.muxSession.Ping()
 			if err != nil {
 				d.forceReconnect <- 0

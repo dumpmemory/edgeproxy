@@ -26,7 +26,7 @@ func (r *Router) ConnectionForward(sourceConn net.Conn, forward auth.ForwardActi
 			return fmt.Errorf("can not connect to %s: %v", forward.DestinationAddr, err)
 		}
 		defer dstConn.Close()
-		defer sourceConn.Close()
+
 		stream.NewBidirectionalStream(sourceConn, dstConn, "tunnel", "destination").Stream()
 		return nil
 	} else {

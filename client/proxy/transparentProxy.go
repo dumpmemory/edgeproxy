@@ -62,10 +62,10 @@ func (t *transparentProxy) serve(listener net.Listener, mapping *listenerTranspa
 	for {
 		//TODO How we stop this gracefully?
 		originConn, err := listener.Accept()
-		log.Debugf("Accepted new TCP Connection")
 		if err != nil {
 			log.Warnf("Error when accepting incoming connection %s: %v", listener.Addr().String(), err)
 		}
+		log.Debugf("Accepted new TCP Connection")
 
 		go t.serveConnection(originConn, listener.Addr().Network(), destinationAddr)
 	}

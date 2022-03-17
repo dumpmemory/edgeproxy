@@ -22,7 +22,7 @@ func NewYamuxMuxer() (*yamuxMuxer, error) {
 		MaxStreamWindowSize:    1024 * 1024,
 		StreamCloseTimeout:     5 * time.Minute,
 		StreamOpenTimeout:      75 * time.Second,
-		LogOutput:              log.New().WriterLevel(log.DebugLevel),
+		LogOutput:              log.StandardLogger().WriterLevel(log.DebugLevel),
 	}
 	m := &yamuxMuxer{
 		yamuxConfig: yamuxConfig,
@@ -36,14 +36,17 @@ func (h *yamuxMuxer) ExecuteServerRouter(router *Router, tunnelConn net.Conn, su
 	if err != nil {
 		return err
 	}
+	defer session.Close()
 
 	for {
 		originConn, err := session.Accept()
+		//As soon underlying connection is dead, Accept will be unlocked and return error, is safe not handling graceful disconnection
 		if err != nil {
 			return err
 		}
 		go h.acceptConnection(originConn, router, subject)
 	}
+
 }
 
 func (h *yamuxMuxer) acceptConnection(originConn net.Conn, router *Router, subject string) {
