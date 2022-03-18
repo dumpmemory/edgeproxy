@@ -30,14 +30,22 @@ var (
 			}
 			authenticator, _ := loadAuthenticator()
 			switch clientConfig.TransportType {
-			case config.WebsocketMuxTransport:
-				dialer, err = proxy.NewMuxWebSocketDialer(cmd.Context(), clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, authenticator)
-				if err != nil {
-					log.Fatal(err)
+			case config.HttpMuxTransport:
+				var poolDialers []proxy.Dialer
+				dialers := 1
+				for j := 0; j < dialers; j++ {
+					log.Infof("Initializing Dialer %d/%d", j+1, dialers)
+					dialerP, err := proxy.NewMuxHTTPDialer(cmd.Context(), clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, authenticator)
+					if err != nil {
+						log.Fatal(err)
+					}
+					poolDialers = append(poolDialers, dialerP)
+
 				}
+				dialer = proxy.NewLBDialer(cmd.Context(), poolDialers)
 				break
-			case config.WebsocketTransport:
-				dialer, err = proxy.NewNoMuxWebSocketDialer(cmd.Context(), clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, authenticator)
+			case config.HttpNoMuxTransport:
+				dialer, err = proxy.NewNoMuxHttpDialer(cmd.Context(), clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, authenticator)
 				if err != nil {
 					log.Fatal(err)
 				}

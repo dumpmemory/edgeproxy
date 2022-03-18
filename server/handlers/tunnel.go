@@ -6,8 +6,9 @@ import (
 	"edgeproxy/stream"
 	"edgeproxy/transport"
 	"fmt"
+	h2conn "github.com/segator/h2conn"
 	log "github.com/sirupsen/logrus"
-	"net"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -27,6 +28,9 @@ func NewTunnelHandlder(ctx context.Context) *tunnelHandler {
 
 func (t *tunnelHandler) TunnelHandler(authenticate auth.Authenticate, authorizer auth.Authorize) httpHandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
+		var serverConn io.ReadWriteCloser
+		var err error
+
 		authorized, subject := authenticate.Authenticate(res, req)
 		if !authorized {
 			res.WriteHeader(http.StatusUnauthorized)
@@ -41,23 +45,13 @@ func (t *tunnelHandler) TunnelHandler(authenticate auth.Authenticate, authorizer
 		muxer, err := transport.NewMuxer(muxerType, req)
 		if err != nil {
 			invalidRequest(res, err)
-		}
-
-		var serverConn net.Conn
-		upgradeHeader := req.Header.Get(HeaderUpgrade)
-
-		//Choose bidirectional stream protocol
-		if strings.ToLower(upgradeHeader) == "websocket" {
-			serverConn, err = stream.NewWebSocketConnectFromServer(context.Background(), res, req)
-			if err != nil {
-				invalidRequest(res, fmt.Errorf("error Initializing Websocket %v", err))
-				return
-			}
-		} else {
-			invalidRequest(res, fmt.Errorf("invalid bidirectioanl stream protocol"))
 			return
 		}
-
+		serverConn, err = t.tunnelConnector(res, req)
+		if err != nil {
+			invalidRequest(res, err)
+			return
+		}
 		router := transport.NewRouter(authorizer)
 		err = muxer.ExecuteServerRouter(router, serverConn, subject.GetSubject())
 		if err != nil {
@@ -65,6 +59,26 @@ func (t *tunnelHandler) TunnelHandler(authenticate auth.Authenticate, authorizer
 			//invalidRequest(res, err)
 		}
 	}
+}
+
+//This functions translates res and req to io.ReadWriteCloser based on the Client Requested Protocol(HTTP/2 Push,HTTP1.1 Websocket)
+func (t *tunnelHandler) tunnelConnector(res http.ResponseWriter, req *http.Request) (serverConn io.ReadWriteCloser, err error) {
+	//Check for HTTP2 tunnel
+	serverConn, err = h2conn.Accept(res, req)
+	if err == nil {
+		return
+	}
+	log.Debug("connection is not HTTP2 ready, trying WSS")
+	upgradeHeader := req.Header.Get(HeaderUpgrade)
+	if strings.ToLower(upgradeHeader) != "websocket" {
+		return nil, fmt.Errorf("invalid bidirectional stream protocol")
+	}
+
+	serverConn, err = stream.NewWebSocketConnectFromServer(context.Background(), res, req)
+	if err != nil {
+		return nil, fmt.Errorf("error Initializing Websocket %v", err)
+	}
+	return serverConn, nil
 }
 
 func invalidRequest(w http.ResponseWriter, err error) {

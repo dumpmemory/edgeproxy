@@ -3,6 +3,7 @@ package transport
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 )
@@ -19,7 +20,7 @@ type Dialer interface {
 }
 
 type Muxer interface {
-	ExecuteServerRouter(router *Router, tunnelConn net.Conn, subject string) error
+	ExecuteServerRouter(router *Router, tunnelConn io.ReadWriteCloser, subject string) error
 }
 type MuxerType string
 

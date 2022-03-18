@@ -3,7 +3,7 @@ package transport
 import (
 	"edgeproxy/server/auth"
 	"fmt"
-	"net"
+	"io"
 	"net/http"
 )
 
@@ -36,7 +36,7 @@ func NewHttpNoMuxer(req *http.Request) (*httpNoMuxer, error) {
 	return directRouter, nil
 }
 
-func (h *httpNoMuxer) ExecuteServerRouter(router *Router, tunnelConn net.Conn, subject string) error {
+func (h *httpNoMuxer) ExecuteServerRouter(router *Router, tunnelConn io.ReadWriteCloser, subject string) error {
 	defer tunnelConn.Close()
 	var err error
 	switch h.routerAction {

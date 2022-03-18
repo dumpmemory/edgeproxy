@@ -5,6 +5,7 @@ import (
 	"edgeproxy/server/auth"
 	"edgeproxy/stream"
 	"fmt"
+	"io"
 	"net"
 )
 
@@ -18,7 +19,7 @@ func NewRouter(authorizer auth.Authorize) *Router {
 	}
 }
 
-func (r *Router) ConnectionForward(sourceConn net.Conn, forward auth.ForwardAction) error {
+func (r *Router) ConnectionForward(sourceConn io.ReadWriteCloser, forward auth.ForwardAction) error {
 	if policyRes := r.authorizer.AuthorizeForward(forward); policyRes {
 		metrics.IncrementRouterForwardAcceptedConnections()
 		dstConn, err := net.Dial(forward.NetType, forward.DestinationAddr)

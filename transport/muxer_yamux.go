@@ -3,7 +3,7 @@ package transport
 import (
 	"edgeproxy/server/auth"
 	log "github.com/sirupsen/logrus"
-	"net"
+	"io"
 	"time"
 )
 import "github.com/hashicorp/yamux"
@@ -31,7 +31,7 @@ func NewYamuxMuxer() (*yamuxMuxer, error) {
 	return m, nil
 }
 
-func (h *yamuxMuxer) ExecuteServerRouter(router *Router, tunnelConn net.Conn, subject string) error {
+func (h *yamuxMuxer) ExecuteServerRouter(router *Router, tunnelConn io.ReadWriteCloser, subject string) error {
 	session, err := yamux.Server(tunnelConn, h.yamuxConfig)
 	if err != nil {
 		return err
@@ -49,7 +49,7 @@ func (h *yamuxMuxer) ExecuteServerRouter(router *Router, tunnelConn net.Conn, su
 
 }
 
-func (h *yamuxMuxer) acceptConnection(originConn net.Conn, router *Router, subject string) {
+func (h *yamuxMuxer) acceptConnection(originConn io.ReadWriteCloser, router *Router, subject string) {
 	defer originConn.Close()
 	frame, actionFrame, err := readFrame(originConn)
 	if err != nil {

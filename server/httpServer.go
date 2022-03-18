@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"sync/atomic"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -16,12 +18,13 @@ import (
 
 type httpServer struct {
 	ctx          context.Context
-	srv          *http.Server
+	http1Srv     *http.Server
 	srvCertPath  string
 	srvKeyPath   string
 	IsReady      *atomic.Value
 	authenticate auth.Authenticate
 	authorize    auth.Authorize
+	http2Srv     *http2.Server
 }
 
 func NewHttpServer(ctx context.Context, authorizers auth.Authenticate, authorize auth.Authorize, httpPort int) httpServer {
@@ -40,13 +43,22 @@ func NewHttpServerWithTLS(ctx context.Context, authenticate auth.Authenticate, a
 	muxRouter.HandleFunc("/healthz", handlers.Healthz)
 	muxRouter.HandleFunc("/readyz", handlers.Readyz(isReady))
 	muxRouter.Handle("/metrics", promhttp.Handler())
+	http2Srv := &http2.Server{
+		MaxHandlers:          0,
+		MaxConcurrentStreams: 100,
+		IdleTimeout:          60,
+	}
+	
+	http1Srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", httpPort),
+		Handler: h2c.NewHandler(muxRouter, http2Srv),
+	}
+	http2.ConfigureServer(http1Srv, http2Srv)
 
 	return httpServer{
-		ctx: ctx,
-		srv: &http.Server{
-			Addr:    fmt.Sprintf(":%d", httpPort),
-			Handler: muxRouter,
-		},
+		ctx:      ctx,
+		http1Srv: http1Srv,
+		http2Srv: http2Srv,
 
 		authenticate: authenticate,
 		authorize:    authorize,
@@ -59,11 +71,11 @@ func NewHttpServerWithTLS(ctx context.Context, authenticate auth.Authenticate, a
 func (w *httpServer) Start() {
 	var err error
 	go func() {
-		log.Infof("Starting HTTP Web Server at Addr %s", w.srv.Addr)
+		log.Infof("Starting HTTP Web Server at Addr %s", w.http1Srv.Addr)
 		if w.srvCertPath != "" && w.srvKeyPath != "" {
-			err = w.srv.ListenAndServeTLS(w.srvCertPath, w.srvKeyPath)
+			err = w.http1Srv.ListenAndServeTLS(w.srvCertPath, w.srvKeyPath)
 		} else {
-			err = w.srv.ListenAndServe()
+			err = w.http1Srv.ListenAndServe()
 		}
 
 		if err != http.ErrServerClosed {
@@ -76,7 +88,7 @@ func (w *httpServer) Start() {
 
 func (w *httpServer) Stop() {
 	log.Infof("Stopping HTTP Web Server")
-	if err := w.srv.Shutdown(w.ctx); err != nil {
+	if err := w.http1Srv.Shutdown(w.ctx); err != nil {
 		log.Fatal(err)
 	}
 }

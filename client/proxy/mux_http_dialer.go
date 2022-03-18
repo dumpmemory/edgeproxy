@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/recws-org/recws"
 	log "github.com/sirupsen/logrus"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -16,8 +17,8 @@ import (
 	"time"
 )
 
-type muxWebsocketDialer struct {
-	net.Conn
+type muxHttpDialer struct {
+	io.ReadWriteCloser
 	rw             sync.RWMutex
 	endpoint       *url.URL
 	authenticator  clientauth.Authenticator
@@ -28,7 +29,7 @@ type muxWebsocketDialer struct {
 	yamuxConfig    *yamux.Config
 }
 
-func NewMuxWebSocketDialer(ctx context.Context, endpoint string, authenticator clientauth.Authenticator) (*muxWebsocketDialer, error) {
+func NewMuxHTTPDialer(ctx context.Context, endpoint string, authenticator clientauth.Authenticator) (*muxHttpDialer, error) {
 	endpointUrl, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
@@ -49,7 +50,7 @@ func NewMuxWebSocketDialer(ctx context.Context, endpoint string, authenticator c
 		LogOutput:              log.StandardLogger().WriterLevel(log.DebugLevel),
 	}
 
-	wssMux := &muxWebsocketDialer{
+	wssMux := &muxHttpDialer{
 		ctx:            ctx,
 		rw:             sync.RWMutex{},
 		endpoint:       endpointUrl,
@@ -68,7 +69,7 @@ func NewMuxWebSocketDialer(ctx context.Context, endpoint string, authenticator c
 	return wssMux, nil
 }
 
-func (d *muxWebsocketDialer) OpenMuxConnection() (net.Conn, error) {
+func (d *muxHttpDialer) OpenMuxConnection() (net.Conn, error) {
 	conn, err := d.muxSession.Open()
 	if err != nil {
 		//We wait 5 seconds for reconnection, in case is not capable to get new connection we finally fail
@@ -78,7 +79,7 @@ func (d *muxWebsocketDialer) OpenMuxConnection() (net.Conn, error) {
 	return conn, nil
 }
 
-func (d *muxWebsocketDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+func (d *muxHttpDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	nt, err := transport.NetTypeFromStr(network)
 	if err != nil {
 		return nil, fmt.Errorf("not Support %s network", network)
@@ -107,23 +108,24 @@ func (d *muxWebsocketDialer) DialContext(ctx context.Context, network, addr stri
 	return conn, nil
 }
 
-func (d *muxWebsocketDialer) Dial(network string, addr string) (net.Conn, error) {
+func (d *muxHttpDialer) Dial(network string, addr string) (net.Conn, error) {
 	return d.DialContext(context.Background(), network, addr)
 }
 
-func (d *muxWebsocketDialer) initializeConnection() error {
-	log.Infof("Connecting to Websocket tunnel endpoint %s", d.endpoint)
+func (d *muxHttpDialer) initializeConnection() error {
+	log.Infof("Connecting to tunnel endpoint %s", d.endpoint)
 	headers := http.Header{}
 	headers.Add(transport.HeaderMuxerType, string(transport.YamuxMuxer))
 	if d.authenticator != nil {
 		d.authenticator.AddAuthenticationHeaders(&headers)
 	}
-	con, err := stream.NewWebsocketConnFromEndpoint(d.ctx, d.endpoint, headers)
+	var conn io.ReadWriteCloser
+	conn, err := stream.NewHttpBiStreamConnFromEndpoint(d.ctx, d.endpoint, headers)
 	if err != nil {
 		return err
 	}
 
-	session, err := yamux.Client(con, d.yamuxConfig)
+	session, err := yamux.Client(conn, d.yamuxConfig)
 	if err != nil {
 		return err
 	}
@@ -133,17 +135,17 @@ func (d *muxWebsocketDialer) initializeConnection() error {
 		d.muxSession.Close()
 	}
 
-	if d.Conn != nil {
-		d.Conn.Close()
+	if d.ReadWriteCloser != nil {
+		d.ReadWriteCloser.Close()
 	}
 
 	//Assign new
-	d.Conn = con
+	d.ReadWriteCloser = conn
 	d.muxSession = session
-	log.Infof("Connected to Websocket tunnel %s", d.endpoint)
+	log.Infof("Connected to tunnel %s", d.endpoint)
 	return nil
 }
-func (d *muxWebsocketDialer) monitorConnection() {
+func (d *muxHttpDialer) monitorConnection() {
 	for {
 		select {
 		case <-d.ctx.Done():
@@ -154,13 +156,14 @@ func (d *muxWebsocketDialer) monitorConnection() {
 	}
 }
 
-func (d *muxWebsocketDialer) reconnect() bool {
+func (d *muxHttpDialer) reconnect() bool {
 	d.rw.Lock()
 	defer d.rw.Unlock()
 	//Before Reconnect we double check if connection is broken
 	_, err := d.muxSession.Ping()
 	if err != nil {
 		for {
+			log.Warnf("Tunnel connection lost, reconnecting...")
 			err := d.initializeConnection()
 			if err != nil {
 				log.Warnf("Failed on Reconnection: %v", err)
@@ -172,13 +175,12 @@ func (d *muxWebsocketDialer) reconnect() bool {
 	}
 	return false
 }
-func (d *muxWebsocketDialer) keepAlive() {
+func (d *muxHttpDialer) keepAlive() {
 	for {
 		select {
 		case <-d.ctx.Done():
 			return
 		case <-time.After(time.Second * 5):
-
 			log.Debugf("Yamux Num Streams %d", d.muxSession.NumStreams())
 			t, err := d.muxSession.Ping()
 			if err != nil {

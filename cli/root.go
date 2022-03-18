@@ -31,7 +31,7 @@ var (
 			EnableSocks5:  false,
 			HttpProxyPort: 9080,
 			Socks5Port:    9022,
-			TransportType: config.WebsocketMuxTransport,
+			TransportType: config.HttpMuxTransport,
 		},
 		ServerConfig: &config.ServerConfig{
 			HttpPort: 9180,

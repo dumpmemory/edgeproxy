@@ -15,12 +15,12 @@ type TransparentProxyMappingList []TransparentProxyMapping
 type PortForwardingMappingList []PortForwardingMapping
 
 const (
-	WebsocketTransport    TransportType = "WebSocketTransport"
-	WebsocketMuxTransport TransportType = "WebSocketMuxTransport"
-	TcpTransport          TransportType = "TcpTransport"
-	WireguardTransport    TransportType = "WireguardTransport"
-	UdpTransport          TransportType = "UDPTransport"
-	QuickTransport        TransportType = "QUICKTransport"
+	HttpNoMuxTransport TransportType = "HttpNoMuxTransport"
+	HttpMuxTransport   TransportType = "HttpMuxTransport"
+	TcpTransport       TransportType = "TcpTransport"
+	WireguardTransport TransportType = "WireguardTransport"
+	UdpTransport       TransportType = "UDPTransport"
+	QuickTransport     TransportType = "QUICKTransport"
 )
 
 func (t *TransportType) String() string {
@@ -187,7 +187,7 @@ type WebSocketTransportConfig struct {
 }
 
 func (c ClientConfig) Validate() (err error) {
-	if c.TransportType == WebsocketTransport && (c.EnableProxy || c.EnableSocks5) {
+	if c.TransportType == HttpNoMuxTransport && (c.EnableProxy || c.EnableSocks5) {
 		if err = c.WebSocketTransportConfig.Validate(); err != nil {
 			return err
 		}

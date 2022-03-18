@@ -2,6 +2,7 @@ package transport
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -20,6 +21,8 @@ const (
 	payload                                    = 4
 	frameSize                                  = versionSize + routerAction + payload
 )
+
+var ErrInvalidFrame = errors.New("invalid Frame")
 
 type Frame []byte
 type ForwardFrame []byte
@@ -97,18 +100,27 @@ func (n NetType) String() string {
 
 func readFrame(r io.Reader) (Frame, interface{}, error) {
 	frame := Frame(make([]byte, frameSize))
-	if _, err := io.ReadFull(r, frame); err != nil {
+	size, err := io.ReadFull(r, frame)
+	if err != nil {
 		return nil, nil, err
 	}
+	if size != frameSize {
+		return nil, nil, fmt.Errorf("invalid frame Size %d expected %d: %v", size, frameSize, ErrInvalidFrame)
+	}
 	if frame.Version() != protoVersion {
-		return nil, nil, fmt.Errorf("invalid Frame version %d, expected %d", frame.Version(), protoVersion)
+		return nil, nil, fmt.Errorf("invalid Frame version %d, expected %d: %v", frame.Version(), protoVersion, ErrInvalidFrame)
 	}
 	switch frame.RouterAction() {
 	case ConnectionForwardRouterAction:
 		fwdFrame := ForwardFrame(make([]byte, frame.PayloadSize()))
-		if _, err := io.ReadFull(r, fwdFrame); err != nil {
+		fwFrameSize, err := io.ReadFull(r, fwdFrame)
+		if err != nil {
 			return nil, nil, err
 		}
+		if fwFrameSize != int(frame.PayloadSize()) {
+			return nil, nil, fmt.Errorf("invalid Forward frame Size %d expected %d: %v", size, frameSize, ErrInvalidFrame)
+		}
+
 		return frame, fwdFrame, nil
 		break
 
@@ -119,7 +131,12 @@ func NewForwardFrame(dstAddr string, netType NetType) (Frame, ForwardFrame) {
 	fwdFrame := ForwardFrame(make([]byte, len(dstAddr)+1))
 	fwdFrame.encode(dstAddr, netType)
 
-	frame := Frame(make([]byte, frameSize))
-	frame.encode(ConnectionForwardRouterAction, len(fwdFrame))
+	frame := newFrame(len(fwdFrame))
 	return frame, fwdFrame
+}
+
+func newFrame(payloadSize int) Frame {
+	frame := Frame(make([]byte, frameSize))
+	frame.encode(ConnectionForwardRouterAction, payloadSize)
+	return frame
 }
