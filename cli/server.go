@@ -37,7 +37,8 @@ var (
 				authorizer = auth.NewPolicyEnforcer(serverConfig.Auth.AclPolicyPath)
 
 			}
-			webSocketRelay := server.NewHttpServer(cmd.Context(), authenticate, authorizer, serverConfig.HttpPort)
+
+			webSocketRelay := server.NewHttpServerWithTLS(cmd.Context(), authenticate, authorizer, serverConfig.HttpPort, serverConfig.HttpsPort, serverConfig.PublicKeyPath, serverConfig.PrivateKeyPath)
 			webSocketRelay.Start()
 
 			<-cmd.Context().Done()
@@ -49,5 +50,8 @@ var (
 
 func init() {
 	RootCmd.AddCommand(serverCmd)
-	clientCmd.PersistentFlags().IntVar(&serverConfig.HttpPort, "http-port", serverConfig.HttpPort, "Http WebSocket Server Listen Port")
+	serverCmd.PersistentFlags().IntVar(&serverConfig.HttpPort, "http-port", serverConfig.HttpPort, "Http Server Listen Port")
+	serverCmd.PersistentFlags().IntVar(&serverConfig.HttpsPort, "https-port", serverConfig.HttpsPort, "Http TLS Server Listen Port")
+	serverCmd.PersistentFlags().StringVar(&serverConfig.PrivateKeyPath, "private-key", serverConfig.PrivateKeyPath, "Server Private Key Path")
+	serverCmd.PersistentFlags().StringVar(&serverConfig.PublicKeyPath, "public-key", serverConfig.PublicKeyPath, "Server Public Key Path")
 }

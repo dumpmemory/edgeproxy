@@ -38,10 +38,7 @@ func NewHttp2BiStreamConnFromEndpoint(ctx context.Context, endpoint *url.URL, he
 		Header: headers,
 		Client: &http.Client{
 			Transport: &http2.Transport{
-				AllowHTTP: true,
-				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
-					return net.Dial(network, addr)
-				},
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			},
 		},
 	}

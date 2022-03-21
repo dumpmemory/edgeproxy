@@ -2,14 +2,23 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"edgeproxy/server/auth"
 	"edgeproxy/server/handlers"
+	"encoding/pem"
 	"fmt"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
+	"io/ioutil"
+	"math/big"
+	mrand "math/rand"
 	"sync/atomic"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -18,7 +27,8 @@ import (
 
 type httpServer struct {
 	ctx          context.Context
-	http1Srv     *http.Server
+	noTLSServer  *http.Server
+	tlsServer    *http.Server
 	srvCertPath  string
 	srvKeyPath   string
 	IsReady      *atomic.Value
@@ -27,11 +37,11 @@ type httpServer struct {
 	http2Srv     *http2.Server
 }
 
-func NewHttpServer(ctx context.Context, authorizers auth.Authenticate, authorize auth.Authorize, httpPort int) httpServer {
-	return NewHttpServerWithTLS(ctx, authorizers, authorize, httpPort, "", "")
+func NewHttpServer(ctx context.Context, authorizers auth.Authenticate, authorize auth.Authorize, httpPort, httpsPort int) httpServer {
+	return NewHttpServerWithTLS(ctx, authorizers, authorize, httpPort, httpsPort, "", "")
 }
 
-func NewHttpServerWithTLS(ctx context.Context, authenticate auth.Authenticate, authorize auth.Authorize, httpPort int, srvCertPath string, srvKeyPath string) httpServer {
+func NewHttpServerWithTLS(ctx context.Context, authenticate auth.Authenticate, authorize auth.Authorize, httpPort, httpsPort int, srvCertPath string, srvKeyPath string) httpServer {
 	muxRouter := mux.NewRouter()
 	isReady := &atomic.Value{}
 	//TODO this probably should not be defined here
@@ -43,23 +53,28 @@ func NewHttpServerWithTLS(ctx context.Context, authenticate auth.Authenticate, a
 	muxRouter.HandleFunc("/healthz", handlers.Healthz)
 	muxRouter.HandleFunc("/readyz", handlers.Readyz(isReady))
 	muxRouter.Handle("/metrics", promhttp.Handler())
-	http2Srv := &http2.Server{
-		MaxHandlers:          0,
-		MaxConcurrentStreams: 100,
-		IdleTimeout:          60,
-	}
-	
-	http1Srv := &http.Server{
+
+	noTLS := &http.Server{
 		Addr:    fmt.Sprintf(":%d", httpPort),
-		Handler: h2c.NewHandler(muxRouter, http2Srv),
+		Handler: muxRouter,
 	}
-	http2.ConfigureServer(http1Srv, http2Srv)
+
+	tls := &http.Server{
+		Addr:    fmt.Sprintf(":%d", httpsPort),
+		Handler: muxRouter,
+	}
+
+	if srvKeyPath == "" && srvCertPath == "" {
+		log.Infof("No Certificate detected, generating random")
+		srvKeyPath, srvCertPath = generateRandomCert()
+		//TODO should be destroyed when application is stopped
+
+	}
 
 	return httpServer{
-		ctx:      ctx,
-		http1Srv: http1Srv,
-		http2Srv: http2Srv,
-
+		ctx:          ctx,
+		noTLSServer:  noTLS,
+		tlsServer:    tls,
 		authenticate: authenticate,
 		authorize:    authorize,
 		IsReady:      isReady,
@@ -68,27 +83,82 @@ func NewHttpServerWithTLS(ctx context.Context, authenticate auth.Authenticate, a
 	}
 }
 
-func (w *httpServer) Start() {
-	var err error
-	go func() {
-		log.Infof("Starting HTTP Web Server at Addr %s", w.http1Srv.Addr)
-		if w.srvCertPath != "" && w.srvKeyPath != "" {
-			err = w.http1Srv.ListenAndServeTLS(w.srvCertPath, w.srvKeyPath)
-		} else {
-			err = w.http1Srv.ListenAndServe()
-		}
+func generateRandomCert() (privateKey string, certificate string) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		log.Fatal("Private key cannot be created.", err.Error())
+	}
 
+	tempKey, err := ioutil.TempFile("", "edgeproxy-*.key")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tempKey.Close()
+	tempCrt, err := ioutil.TempFile("", "edgeproxy-*.crt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Generate a pem block with the private key
+	err = pem.Encode(tempKey, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	randomNumber := mrand.Intn(999999)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tml := x509.Certificate{
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().AddDate(5, 0, 0),
+		SerialNumber: big.NewInt(int64(randomNumber)),
+		Subject: pkix.Name{
+			CommonName:   "edgeproxy.io",
+			Organization: []string{"Edgeproxy Github"},
+		},
+		BasicConstraintsValid: true,
+	}
+	cert, err := x509.CreateCertificate(rand.Reader, &tml, &tml, &key.PublicKey, key)
+	if err != nil {
+		log.Fatal("Certificate cannot be created.", err.Error())
+	}
+
+	// Generate a pem block with the certificate
+	err = pem.Encode(tempCrt, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return tempKey.Name(), tempCrt.Name()
+}
+
+func (w *httpServer) Start() {
+
+	go func() {
+		log.Infof("Starting HTTP TLS Web Server at Addr %s", w.tlsServer.Addr)
+		err := w.tlsServer.ListenAndServeTLS(w.srvCertPath, w.srvKeyPath)
 		if err != http.ErrServerClosed {
-			log.Fatalf("http Proxy Client Listen failure: %v", err)
+			log.Fatalf("http server TLS Listen failure: %v", err)
 		}
 	}()
-	//TODO this should be only active if we can establish connection to the backend tunnel.
+	go func() {
+		log.Infof("Starting HTTP  Web Server at Addr %s", w.noTLSServer.Addr)
+		err := w.noTLSServer.ListenAndServe()
+		if err != http.ErrServerClosed {
+			log.Fatalf("http server  Listen failure: %v", err)
+		}
+	}()
 	w.IsReady.Store(true)
 }
 
 func (w *httpServer) Stop() {
 	log.Infof("Stopping HTTP Web Server")
-	if err := w.http1Srv.Shutdown(w.ctx); err != nil {
-		log.Fatal(err)
-	}
+	w.noTLSServer.Shutdown(w.ctx)
+	w.tlsServer.Shutdown(w.ctx)
 }

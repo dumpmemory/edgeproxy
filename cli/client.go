@@ -32,9 +32,9 @@ var (
 			switch clientConfig.TransportType {
 			case config.HttpMuxTransport:
 				var poolDialers []proxy.Dialer
-				dialers := 1
-				for j := 0; j < dialers; j++ {
-					log.Infof("Initializing Dialer %d/%d", j+1, dialers)
+
+				for j := 0; j < clientConfig.TransportTypeMuxBackendConnections; j++ {
+					log.Infof("Initializing Dialer %d/%d", j+1, clientConfig.TransportTypeMuxBackendConnections)
 					dialerP, err := proxy.NewMuxHTTPDialer(cmd.Context(), clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, authenticator)
 					if err != nil {
 						log.Fatal(err)
@@ -109,6 +109,7 @@ func init() {
 
 	//Transport Type Configuration
 	clientCmd.PersistentFlags().VarP(&clientConfig.TransportType, "transport", "t", "Transport Type")
+	clientCmd.PersistentFlags().IntVarP(&clientConfig.TransportTypeMuxBackendConnections, "transport-pool-num", "l", clientConfig.TransportTypeMuxBackendConnections, "Number of idle Mux connections, more connections better balancing but more resources consumed")
 
 	//WebSocket Transport Configuration
 	clientCmd.PersistentFlags().StringVarP(&clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, "wssTunnelEndpoint", "w", clientConfig.WebSocketTransportConfig.WebSocketTunnelEndpoint, "WebSocket Tunnel endpoint")

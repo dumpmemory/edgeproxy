@@ -27,14 +27,16 @@ var (
 	Verbose     bool
 	appConfig   = &config.ApplicationConfig{
 		ClientConfig: &config.ClientConfig{
-			EnableProxy:   false,
-			EnableSocks5:  false,
-			HttpProxyPort: 9080,
-			Socks5Port:    9022,
-			TransportType: config.HttpMuxTransport,
+			EnableProxy:                        false,
+			EnableSocks5:                       false,
+			HttpProxyPort:                      9080,
+			Socks5Port:                         9022,
+			TransportType:                      config.HttpMuxTransport,
+			TransportTypeMuxBackendConnections: 3,
 		},
 		ServerConfig: &config.ServerConfig{
-			HttpPort: 9180,
+			HttpPort:  9180,
+			HttpsPort: 9443,
 		},
 	}
 	RootCmd = &cobra.Command{

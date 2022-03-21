@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -108,20 +109,24 @@ type ApplicationConfig struct {
 }
 
 type ClientConfig struct {
-	EnableProxy              bool `mapstructure:"proxy"`
-	EnableSocks5             bool `mapstructure:"socks5"`
-	HttpProxyPort            int
-	Socks5Port               int
-	TransportType            TransportType
-	WebSocketTransportConfig WebSocketTransportConfig
-	TransparentProxyList     TransparentProxyMappingList
-	PortForwardList          PortForwardingMappingList
-	Auth                     ClientAuthConfig `mapstructure:"clientauth"`
+	EnableProxy                        bool `mapstructure:"proxy"`
+	EnableSocks5                       bool `mapstructure:"socks5"`
+	HttpProxyPort                      int
+	Socks5Port                         int
+	TransportType                      TransportType
+	WebSocketTransportConfig           WebSocketTransportConfig
+	TransparentProxyList               TransparentProxyMappingList
+	PortForwardList                    PortForwardingMappingList
+	Auth                               ClientAuthConfig `mapstructure:"clientauth"`
+	TransportTypeMuxBackendConnections int
 }
 
 type ServerConfig struct {
-	HttpPort int              `mapstructure:"httpPort"`
-	Auth     ServerAuthConfig `mapstructure:"clientauth"`
+	HttpPort       int              `mapstructure:"httpPort"`
+	HttpsPort      int              `mapstructure:"httpsPort"`
+	Auth           ServerAuthConfig `mapstructure:"clientauth"`
+	PublicKeyPath  string           `mapstructure:"pubkey"`
+	PrivateKeyPath string           `mapstructure:"privatekey"`
 }
 
 type ClientAuthConfig struct {
@@ -179,7 +184,23 @@ func (s ServerConfig) Validate() error {
 			return errors.New("must set a SPIFFE trust domain")
 		}
 	}
+
+	if s.PublicKeyPath != "" && !checkFileExist(s.PublicKeyPath) {
+		return errors.New("public Key Path not exists")
+	}
+
+	if s.PrivateKeyPath != "" && !checkFileExist(s.PrivateKeyPath) {
+		return errors.New("private Key Path not exists")
+	}
 	return nil
+}
+
+func checkFileExist(path string) bool {
+	if _, err := os.Stat(path); err == nil {
+		return true
+	} else {
+		return false
+	}
 }
 
 type WebSocketTransportConfig struct {
